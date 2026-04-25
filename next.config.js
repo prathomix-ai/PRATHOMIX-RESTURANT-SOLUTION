@@ -1,12 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Vercel ko bolna ki ESLint (choti-moti warnings) ko ignore kare
+  // Puraane errors bypass karne ke liye
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Vercel ko bolna ki TypeScript ki errors ko ignore kare
   typescript: {
     ignoreBuildErrors: true,
+  },
+  // NAYA: Images ko allow karne ke liye
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**', // Yeh kisi bhi external link ki image ko allow kar dega
+      },
+    ],
   },
 };
 
