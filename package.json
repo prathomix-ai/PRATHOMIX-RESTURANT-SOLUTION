@@ -1,0 +1,36 @@
+{
+  "name": "prathomix-restaurant",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "predev": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
+    "dev": "next dev",
+    "prebuild": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "@supabase/supabase-js": "^2.44.0",
+    "framer-motion": "^11.2.0",
+    "@google/generative-ai": "^0.15.0",
+    "groq-sdk": "^0.5.0",
+    "zustand": "^4.5.0",
+    "lucide-react": "^0.400.0",
+    "qrcode.react": "^4.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/node": "^20",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8",
+    "autoprefixer": "^10",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.3"
+  }
+}
