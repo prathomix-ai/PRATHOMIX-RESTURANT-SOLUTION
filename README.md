@@ -65,7 +65,8 @@ prathomix-restaurant/
 
 ## Hidden Admin Panel
 Navigate directly to: `http://localhost:3000/admin`
-Default password: `prathomix2024`
+Default password:
+
 
 > ⚠️ There are ZERO frontend links to /admin. It's a secret route.
 
