@@ -121,7 +121,7 @@ export default function ChatInterface() {
                 <p className="text-sm font-semibold text-white">Priya — AI Assistant</p>
                 <p className="text-xs text-emerald-400 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
-                  Online · Powered by Gemini
+                  Online · Powered by PRATHOMIX
                 </p>
               </div>
               <button onClick={() => setOpen(false)} className="ml-auto text-slate-500 hover:text-white transition-colors">
