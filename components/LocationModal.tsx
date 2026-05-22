@@ -67,7 +67,7 @@ export default function LocationModal({ isOpen, onClose }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-sm"
           onClick={onClose}>
           <motion.div
             initial={{ scale: 0.9, y: 20 }}
@@ -118,7 +118,7 @@ export default function LocationModal({ isOpen, onClose }: Props) {
                 </div>
               )}
               {userLoc && !loading && (
-                <p className="text-sm text-gray-900 font-medium">
+                <p className="text-sm text-stone-900 font-medium">
                   {userLoc.lat.toFixed(4)}°N, {userLoc.lng.toFixed(4)}°E
                 </p>
               )}
@@ -132,14 +132,14 @@ export default function LocationModal({ isOpen, onClose }: Props) {
                 className="grid grid-cols-2 gap-3 mb-4">
                 <div className="glass rounded-xl p-4 text-center border border-primary-600/15">
                   <p className="text-2xl font-bold text-primary-600">{distance.toFixed(1)}</p>
-                  <p className="text-xs text-gray-600 mt-0.5">km away</p>
+                  <p className="text-xs text-stone-600 mt-0.5">km away</p>
                 </div>
                 <div className="glass rounded-xl p-4 text-center border border-warm-200/40">
                   <div className="flex items-center justify-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-gray-600" />
-                    <p className="text-2xl font-bold text-gray-900">{eta}</p>
+                    <Clock className="w-3.5 h-3.5 text-stone-600" />
+                    <p className="text-2xl font-bold text-stone-900">{eta}</p>
                   </div>
-                  <p className="text-xs text-gray-600 mt-0.5">min drive est.</p>
+                  <p className="text-xs text-stone-600 mt-0.5">min drive est.</p>
                 </div>
               </motion.div>
             )}

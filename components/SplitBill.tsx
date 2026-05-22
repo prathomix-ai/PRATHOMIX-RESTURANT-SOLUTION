@@ -38,17 +38,17 @@ export default function SplitBill({ total, onConfirm }: Props) {
   }
 
   return (
-    <div className="glass neon-border rounded-2xl p-6">
+    <div className="glass rounded-2xl p-6 border border-warm-200 shadow-warm">
       <h3
         className="font-display text-lg font-semibold gradient-text mb-5 flex items-center gap-2"
         style={{ fontFamily: 'Cinzel, serif' }}>
-        <Users className="w-5 h-5 text-cyan-400" />
+        <Users className="w-5 h-5 text-primary-600" />
         Split the Bill
       </h3>
 
       {/* People selector */}
       <div className="mb-6">
-        <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Number of people</p>
+        <p className="text-xs text-stone-500 uppercase tracking-wider mb-3">Number of people</p>
         <div className="flex gap-2 flex-wrap">
           {[1, 2, 3, 4, 5, 6].map((n) => (
             <button
@@ -56,8 +56,8 @@ export default function SplitBill({ total, onConfirm }: Props) {
               onClick={() => { setSplits(n); setPaid([]); setConfirm(false); }}
               className={`w-11 h-11 rounded-xl text-sm font-bold transition-all duration-200
                            ${splits === n
-                             ? 'bg-cyan-500/20 border-2 border-cyan-400 text-cyan-400 shadow-neon-sm'
-                             : 'glass border border-slate-700 text-slate-300 hover:border-cyan-500/30'}`}>
+                             ? 'bg-primary-600/10 border-2 border-primary-400 text-primary-700 shadow-warm'
+                               : 'glass border border-warm-200 text-stone-600 hover:border-primary-400/30'}`}>
               {n}
             </button>
           ))}
@@ -65,15 +65,15 @@ export default function SplitBill({ total, onConfirm }: Props) {
       </div>
 
       {/* Amount summary */}
-      <div className="flex items-center justify-between mb-5 p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+        <div className="flex items-center justify-between mb-5 p-4 rounded-xl bg-primary-50 border border-warm-200">
         <div>
-          <p className="text-xs text-slate-400">Total</p>
-          <p className="text-sm font-bold text-white">₹{total.toFixed(2)}</p>
+            <p className="text-xs text-stone-500">Total</p>
+            <p className="text-sm font-bold text-stone-900">₹{total.toFixed(2)}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-slate-600" />
+          <ChevronRight className="w-4 h-4 text-stone-400" />
         <div className="text-right">
-          <p className="text-xs text-slate-400">Each pays</p>
-          <p className="text-xl font-bold neon-text">₹{perPerson}</p>
+            <p className="text-xs text-stone-500">Each pays</p>
+            <p className="text-xl font-bold text-primary-700">₹{perPerson}</p>
         </div>
       </div>
 
@@ -83,16 +83,16 @@ export default function SplitBill({ total, onConfirm }: Props) {
           <QRCodeCanvas
             value={`upi://pay?pa=${UPI_IDS[0]}&am=${total.toFixed(2)}&cu=INR&tn=Prathomix+Order`}
             size={160}
-            bgColor="#0a0a12"
-            fgColor="#00ffe7"
+            bgColor="#FAF9F6"
+            fgColor="#2C2C2C"
             level="M"
             style={{ borderRadius: 12, display: 'block' }}
           />
-          <p className="text-xs text-slate-400">Scan to pay ₹{total.toFixed(2)}</p>
+          <p className="text-xs text-stone-500">Scan to pay ₹{total.toFixed(2)}</p>
           <button
             onClick={() => { setConfirm(true); onConfirm(); }}
-            className="mt-1 px-6 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30
-                       text-emerald-400 text-sm font-medium hover:bg-emerald-500/25 transition-all">
+            className="mt-1 px-6 py-2 rounded-lg bg-accent-green/10 border border-accent-green/20
+                       text-accent-green text-sm font-medium hover:bg-accent-green/15 transition-all">
             Mark as Paid ✓
           </button>
         </div>
@@ -115,8 +115,8 @@ export default function SplitBill({ total, onConfirm }: Props) {
                 className={`relative rounded-xl p-3 text-center cursor-pointer
                              select-none transition-all duration-200
                              ${isPaid
-                               ? 'bg-emerald-500/10 border-2 border-emerald-500/50'
-                               : 'glass border border-slate-700 hover:border-cyan-500/30 hover:shadow-neon-sm'}`}>
+                               ? 'bg-accent-green/10 border-2 border-accent-green/30'
+                               : 'glass border border-warm-200 hover:border-primary-400/30 hover:shadow-warm'}`}> 
 
                 {/* Paid overlay */}
                 <AnimatePresence>
@@ -124,27 +124,27 @@ export default function SplitBill({ total, onConfirm }: Props) {
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="absolute inset-0 flex items-center justify-center rounded-xl bg-emerald-500/20 z-10">
-                      <CheckCircle className="w-8 h-8 text-emerald-400" />
+                      className="absolute inset-0 flex items-center justify-center rounded-xl bg-accent-green/15 z-10">
+                      <CheckCircle className="w-8 h-8 text-accent-green" />
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                <p className="text-[10px] text-slate-400 mb-2 font-semibold uppercase tracking-wide">
+                <p className="text-[10px] text-stone-500 mb-2 font-semibold uppercase tracking-wide">
                   Person {i + 1}
                 </p>
                 <div className="flex justify-center mb-2">
                   <QRCodeCanvas
                     value={upiUrl}
                     size={72}
-                    bgColor="#0a0a12"
-                    fgColor="#00ffe7"
+                    bgColor="#FAF9F6"
+                    fgColor="#2C2C2C"
                     level="L"
                     style={{ borderRadius: 6, display: 'block' }}
                   />
                 </div>
-                <p className="text-xs font-bold text-cyan-400">₹{perPerson}</p>
-                <p className="text-[9px] text-slate-500 mt-0.5">Tap when paid</p>
+                <p className="text-xs font-bold text-primary-700">₹{perPerson}</p>
+                <p className="text-[9px] text-stone-500 mt-0.5">Tap when paid</p>
               </motion.div>
             );
           })}
@@ -157,9 +157,9 @@ export default function SplitBill({ total, onConfirm }: Props) {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mt-5 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-center">
-            <p className="text-emerald-400 font-semibold text-sm">🎉 All payments received!</p>
-            <p className="text-xs text-slate-400 mt-1">WhatsApp receipt has been sent. Enjoy your meal!</p>
+            className="mt-5 p-4 rounded-xl bg-accent-green/10 border border-accent-green/20 text-center">
+              <p className="text-accent-green font-semibold text-sm">🎉 All payments received!</p>
+              <p className="text-xs text-stone-500 mt-1">WhatsApp receipt has been sent. Enjoy your meal!</p>
           </motion.div>
         )}
       </AnimatePresence>

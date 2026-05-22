@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase } from '@/lib/supabase';
+import { ensureRestaurantDishesSeeded } from '@/lib/restaurantSeed';
 import DishCard from './DishCard';
 import type { Dish } from '@/lib/supabase';
 
 async function getFeatured(): Promise<Dish[]> {
+  await ensureRestaurantDishesSeeded();
+
   const { data } = await supabase
     .from(RESTAURANT_TABLES.dishes)
     .select('*')
@@ -17,7 +20,8 @@ export default async function FeaturedMenu() {
   const dishes = await getFeatured();
 
   return (
-    <section className="py-20 px-4 max-w-7xl mx-auto">
+    <section className="py-20 px-4">
+      <div className="float-surface max-w-7xl mx-auto rounded-[2.5rem] p-6 sm:p-8 lg:p-10">
       <div className="flex items-end justify-between mb-10">
         <div>
           <p className="text-xs text-primary-600 uppercase tracking-widest mb-2 font-medium">
@@ -52,6 +56,7 @@ export default async function FeaturedMenu() {
           ))}
         </div>
       )}
+      </div>
     </section>
   );
 }

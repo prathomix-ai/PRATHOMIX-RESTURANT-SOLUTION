@@ -9,6 +9,8 @@ import type { Dish } from '@/lib/supabase';
 
 const CATEGORIES = ['All', 'High Protein', 'Low Cal', 'Vegetarian', 'Main'];
 
+const normalize = (value: string) => value.trim().toLowerCase();
+
 export default function MenuPage() {
   const [dishes,   setDishes]   = useState<Dish[]>([]);
   const [filtered, setFiltered] = useState<Dish[]>([]);
@@ -16,6 +18,30 @@ export default function MenuPage() {
   const [search,   setSearch]   = useState('');
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
+
+  const gridVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.08,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 28, scale: 0.98 },
+    show: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.55,
+        ease: [0.22, 1, 0.36, 1],
+      },
+    },
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -55,22 +81,30 @@ export default function MenuPage() {
   }, []);
 
   useEffect(() => {
-    let f = category === 'All'
+    let f = normalize(category) === 'all'
       ? [...dishes]
-      : dishes.filter((d) => d.category === category);
+      : dishes.filter((d) => normalize(d.category) === normalize(category));
 
-    if (search) f = f.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
+    if (search) {
+      const query = normalize(search);
+      f = f.filter((d) =>
+        [d.name, d.description, d.category]
+          .filter(Boolean)
+          .some((field) => normalize(String(field)).includes(query))
+      );
+    }
+
     setFiltered(f);
   }, [category, search, dishes]);
 
   return (
     <>
       <Navbar />
-      <main className="pt-24 pb-16 px-4 max-w-7xl mx-auto">
+      <main className="pt-24 pb-16 px-4 max-w-[96rem] mx-auto">
 
         {/* Header */}
         <div className="text-center mb-12">
-          <p className="text-xs text-cyan-400 uppercase tracking-widest mb-2 font-medium">
+          <p className="text-xs text-primary-600 uppercase tracking-widest mb-2 font-medium">
             Curated for your goals
           </p>
           <h1
@@ -78,8 +112,8 @@ export default function MenuPage() {
             style={{ fontFamily: 'Cinzel, serif' }}>
             Our Menu
           </h1>
-          <p className="text-slate-400 text-sm">
-            Filter by nutrition goals · Ask Priya for AI-powered personalized picks
+          <p className="text-stone-500 text-sm">
+            Filter by nutrition goals · Ask Mix for AI-powered personalized picks
           </p>
         </div>
 
@@ -91,24 +125,33 @@ export default function MenuPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search dishes…"
-              className="w-full pl-10 pr-4 py-2.5 glass border border-slate-700
-                         focus:border-cyan-500/50 rounded-xl text-sm text-white
-                         placeholder-slate-500 outline-none transition-all focus:shadow-neon-sm" />
+              className="w-full pl-10 pr-4 py-2.5 glass border border-warm-200
+                         focus:border-primary-400/50 rounded-xl text-sm text-primary-900
+                         placeholder-stone-400 outline-none transition-all focus:shadow-warm" />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <SlidersHorizontal className="w-4 h-4 text-slate-500 flex-shrink-0" />
+            <SlidersHorizontal className="w-4 h-4 text-stone-500 flex-shrink-0" />
             {CATEGORIES.map((c) => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
                 className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200
                              ${category === c
-                               ? 'bg-cyan-500/15 border border-cyan-400/60 text-cyan-400 shadow-neon-sm'
-                               : 'glass border border-slate-700 text-slate-300 hover:border-cyan-500/30'}`}>
+                               ? 'bg-primary-600/10 border border-primary-400/40 text-primary-700 shadow-warm'
+                               : 'glass border border-warm-200 text-stone-600 hover:border-primary-400/30 hover:text-primary-700'}`}>
                 {c}
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between text-xs text-stone-500">
+          <span>
+            {loading
+              ? 'Loading menu from Supabase...'
+              : `${filtered.length} dishes shown${category !== 'All' ? ` in ${category}` : ''}`}
+          </span>
+          <span>{dishes.length} total in table</span>
         </div>
 
         {/* Grid */}
@@ -119,17 +162,17 @@ export default function MenuPage() {
             ))}
           </div>
         ) : error ? (
-          <div className="text-center py-20 text-red-300">
+          <div className="text-center py-20 text-amber-900">
             Could not load dishes: {error}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-slate-500">
+          <div className="text-center py-20 text-stone-500">
             No dishes match your current filter.
           </div>
         ) : (
-          <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div layout variants={gridVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-5">
             {filtered.map((dish) => (
-              <motion.div key={dish.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div key={dish.id} layout variants={itemVariants}>
                 <DishCard dish={dish} />
               </motion.div>
             ))}

@@ -361,7 +361,7 @@ export default function AdminPage() {
                               ₹{d.price} · {d.calories} cal · {d.protein}g protein
                             </p>
                           </div>
-                          <span className="text-[10px] bg-cyan-500/10 border border-cyan-500/15 text-cyan-400
+                          <span className="text-[10px] bg-primary-600/10 border border-primary-600/15 text-primary-700
                                            px-2 py-0.5 rounded-full flex-shrink-0">
                             {d.category}
                           </span>

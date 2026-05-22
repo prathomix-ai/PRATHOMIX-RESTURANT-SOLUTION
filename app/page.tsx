@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <>
       <Navbar />
-      <main className="pt-16">
+      <main className="pt-28">
         <HeroSection />
         <Suspense
           fallback={

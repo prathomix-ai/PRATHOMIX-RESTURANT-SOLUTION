@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase } from '@/lib/supabase';
+import { ensureRestaurantDishesSeeded } from '@/lib/restaurantSeed';
 
 export async function GET() {
+  await ensureRestaurantDishesSeeded();
+
   const { data, error } = await supabase
     .from(RESTAURANT_TABLES.dishes)
     .select('*')

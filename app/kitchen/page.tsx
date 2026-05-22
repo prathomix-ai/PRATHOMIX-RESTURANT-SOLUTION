@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, ChefHat, Clock, CheckCircle2 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import KitchenOrderCard from '@/components/KitchenOrderCard';
+import { getLocalOrders, isLocalOrderId, updateLocalOrderStatus } from '@/lib/localOrders';
 
 interface Order {
   id: string;
@@ -27,9 +28,12 @@ export default function KitchenDashboard() {
     try {
       setRefreshing(true);
       const res = await fetch('/api/orders');
-      if (!res.ok) throw new Error('Failed to fetch orders');
-      const data = await res.json();
-      setOrders(data);
+      const serverOrders = res.ok ? await res.json() : [];
+      const localOrders = getLocalOrders();
+      const mergedOrders = [...localOrders, ...serverOrders].filter((order, index, all) => {
+        return all.findIndex((candidate) => candidate.id === order.id) === index;
+      });
+      setOrders(mergedOrders);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -48,6 +52,16 @@ export default function KitchenDashboard() {
 
   const handleStatusUpdate = async (orderId: string, status: string) => {
     try {
+      if (isLocalOrderId(orderId)) {
+        updateLocalOrderStatus(orderId, status);
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === orderId ? { ...order, status, updated_at: new Date().toISOString() } : order
+          )
+        );
+        return;
+      }
+
       const res = await fetch('/api/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -97,7 +111,7 @@ export default function KitchenDashboard() {
                     Kitchen Dashboard
                   </h1>
                 </div>
-                <p className="text-sm text-gray-600">Manage incoming orders in real-time</p>
+                <p className="text-sm text-stone-600">Manage incoming orders in real-time</p>
               </div>
 
               {/* Stats & Refresh */}
@@ -106,10 +120,10 @@ export default function KitchenDashboard() {
                   <div className="flex items-center gap-4">
                     <div className="text-center">
                       <p className="text-2xl font-bold text-primary-600">{totalOrders}</p>
-                      <p className="text-xs text-gray-600">Active Orders</p>
+                      <p className="text-xs text-stone-600">Active Orders</p>
                     </div>
                     {urgentCount > 0 && (
-                      <div className="text-center px-3 py-2 bg-accent-red/10 border border-accent-red/30 rounded-lg">
+                      <div className="text-center px-3 py-2 bg-accent-red/10 border border-accent-red/20 rounded-lg">
                         <p className="text-2xl font-bold text-accent-red">{urgentCount}</p>
                         <p className="text-xs text-accent-red font-semibold">Urgent</p>
                       </div>
@@ -144,7 +158,7 @@ export default function KitchenDashboard() {
           <div className="flex items-center justify-center min-h-[600px]">
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading orders...</p>
+              <p className="text-stone-600">Loading orders...</p>
             </div>
           </div>
         ) : (
@@ -152,10 +166,10 @@ export default function KitchenDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Column 1: New Orders */}
               <div>
-                <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-blue-200">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                  <h2 className="text-lg font-semibold text-blue-900">New Orders</h2>
-                  <span className="ml-auto px-2.5 py-0.5 bg-blue-100 text-blue-700 text-sm font-bold rounded-full">
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-primary-200">
+                  <Clock className="w-5 h-5 text-primary-700" />
+                  <h2 className="text-lg font-semibold text-stone-900">New Orders</h2>
+                  <span className="ml-auto px-2.5 py-0.5 bg-primary-100 text-primary-700 text-sm font-bold rounded-full">
                     {placedOrders.length}
                   </span>
                 </div>
@@ -168,7 +182,7 @@ export default function KitchenDashboard() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="flex items-center justify-center h-64 text-gray-400">
+                        className="flex items-center justify-center h-64 text-stone-400">
                         <p className="text-center text-sm">No new orders at the moment</p>
                       </motion.div>
                     ) : (
@@ -186,10 +200,10 @@ export default function KitchenDashboard() {
 
               {/* Column 2: Preparing */}
               <div>
-                <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-yellow-200">
-                  <ChefHat className="w-5 h-5 text-yellow-600" />
-                  <h2 className="text-lg font-semibold text-yellow-900">Preparing</h2>
-                  <span className="ml-auto px-2.5 py-0.5 bg-yellow-100 text-yellow-700 text-sm font-bold rounded-full">
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-warm-300">
+                  <ChefHat className="w-5 h-5 text-primary-700" />
+                  <h2 className="text-lg font-semibold text-stone-900">Preparing</h2>
+                  <span className="ml-auto px-2.5 py-0.5 bg-warm-100 text-primary-700 text-sm font-bold rounded-full">
                     {preparingOrders.length}
                   </span>
                 </div>
@@ -202,7 +216,7 @@ export default function KitchenDashboard() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="flex items-center justify-center h-64 text-gray-400">
+                        className="flex items-center justify-center h-64 text-stone-400">
                         <p className="text-center text-sm">No orders being prepared</p>
                       </motion.div>
                     ) : (

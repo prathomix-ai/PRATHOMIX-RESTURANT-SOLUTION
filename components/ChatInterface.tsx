@@ -22,7 +22,7 @@ const INITIAL: Message = {
   id: '0',
   role: 'assistant',
   content:
-    "Hi! I'm Priya, your AI dining assistant 🍽️  I can help you find high-protein dishes, book a table, or answer any menu questions. You can also tap the mic to speak!",
+    "Hi! I'm Mix, your AI dining assistant 🍽️  I can help you find high-protein dishes, book a table, or answer any menu questions. You can also tap the mic to speak!",
 };
 
 export default function ChatInterface() {
@@ -107,8 +107,8 @@ export default function ChatInterface() {
             animate={{ opacity: 1, y: 0,  scale: 1    }}
             exit={{    opacity: 0, y: 24, scale: 0.95 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="fixed bottom-24 right-4 sm:right-6 z-40
-                       w-[calc(100vw-2rem)] sm:w-[420px] h-[600px]
+            className="fixed bottom-20 right-4 sm:right-6 z-40
+                       w-[min(82vw,360px)] sm:w-[360px] h-[min(74vh,640px)] max-h-[calc(100vh-5.5rem)]
                        glass border border-warm-200 rounded-2xl flex flex-col overflow-hidden shadow-warm-lg">
 
             {/* Header */}
@@ -118,7 +118,7 @@ export default function ChatInterface() {
                 <Bot className="w-4 h-4 text-primary-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-primary-900">Priya — AI Assistant</p>
+                <p className="text-sm font-semibold text-primary-900">Mix — AI Assistant</p>
                 <p className="text-xs text-accent-green flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent-green inline-block animate-pulse" />
                   Online · Powered by PRATHOMIX
@@ -157,10 +157,15 @@ export default function ChatInterface() {
 
                     {/* Generative UI — Dish Cards */}
                     {m.toolResult?.type === 'dishes' && m.toolResult.data.length > 0 && (
-                      <div className="flex gap-3 overflow-x-auto pb-1 max-w-[340px]">
-                        {m.toolResult.data.map((dish) => (
-                          <DishCard key={dish.id} dish={dish} compact />
-                        ))}
+                      <div className="flex flex-col gap-2 w-full max-w-none">
+                        <p className="text-[11px] uppercase tracking-[0.3em] text-primary-700 font-semibold">
+                          Suggested dishes
+                        </p>
+                        <div className="flex gap-3 overflow-x-auto pb-2 pr-1 w-full">
+                          {m.toolResult.data.map((dish) => (
+                            <DishCard key={dish.id} dish={dish} compact />
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -196,7 +201,7 @@ export default function ChatInterface() {
 
             {/* Quick Prompts */}
             {messages.length === 1 && !loading && (
-              <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
+              <div className="px-4 pb-2 flex gap-2 overflow-x-auto flex-wrap">
                 {[
                   'High protein dishes 40g+',
                   'Low calorie options',

@@ -9,11 +9,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const baseOrder = {
+    dish_ids,
+    dish_names,
+    total_amount,
+    split_count: split_count ?? 1,
+  };
+
+  const tryInsert = async (payload: Record<string, unknown>) => supabase
     .from(RESTAURANT_TABLES.orders)
-    .insert({ dish_ids, dish_names, total_amount, split_count: split_count ?? 1, table_number })
+    .insert(payload)
     .select()
     .single();
+
+  let result = await tryInsert({ ...baseOrder, table_number });
+
+  if (result.error?.message.includes("Could not find the 'table_number' column")) {
+    result = await tryInsert(baseOrder);
+  }
+
+  const { data, error } = result;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data, { status: 201 });

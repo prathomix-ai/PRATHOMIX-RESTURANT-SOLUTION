@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
-import { RESTAURANT_TABLES, supabase } from '@/lib/supabase';
+import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase } from '@/lib/supabase';
+import { ensureRestaurantDishesSeeded } from '@/lib/restaurantSeed';
 
 const GEMINI_MODELS = [
   process.env.GEMINI_MODEL,
@@ -28,6 +29,7 @@ async function executeTool(name: string, args: Record<string, unknown>) {
   };
 
   if (name === 'search_dishes') {
+    await ensureRestaurantDishesSeeded();
     let q = supabase.from(RESTAURANT_TABLES.dishes).select('*').eq('available', true);
     const minProtein  = toNumber(args.min_protein);
     const maxCalories = toNumber(args.max_calories);
@@ -60,6 +62,7 @@ async function executeTool(name: string, args: Record<string, unknown>) {
   }
 
   if (name === 'get_menu') {
+    await ensureRestaurantDishesSeeded();
     const { data } = await supabase
       .from(RESTAURANT_TABLES.dishes)
       .select('name, price, calories, protein, category')
@@ -69,6 +72,110 @@ async function executeTool(name: string, args: Record<string, unknown>) {
   }
 
   return {};
+}
+
+function buildFallbackDishQuery(message: string) {
+  const text = message.toLowerCase();
+  const calorieMatch = text.match(/(\d+)\s*(?:cal|calorie|calories)/i);
+  const proteinMatch = text.match(/(\d+)\s*(?:g\s*)?(?:protein|prot)/i);
+
+  if (text.includes('menu') || text.includes('show me') || text.includes('what') || text.includes('suggest') || text.includes('recommend')) {
+    return { kind: 'menu' as const, args: {} };
+  }
+
+  if (text.includes('low cal') || text.includes('low calorie') || text.includes('calorie') || text.includes('weight loss')) {
+    return {
+      kind: 'search' as const,
+      args: {
+        max_calories: calorieMatch?.[1] ?? '350',
+        category: 'Low Cal',
+      },
+    };
+  }
+
+  if (text.includes('high protein') || text.includes('protein') || text.includes('muscle') || text.includes('gym') || text.includes('fitness')) {
+    return {
+      kind: 'search' as const,
+      args: {
+        min_protein: proteinMatch?.[1] ?? '30',
+        category: 'High Protein',
+      },
+    };
+  }
+
+  if (text.includes('vegetarian') || text.includes('veg ' ) || text.includes('vegan')) {
+    return {
+      kind: 'search' as const,
+      args: { category: 'Vegetarian' },
+    };
+  }
+
+  if (text.includes('main') || text.includes('biryani') || text.includes('chicken') || text.includes('paneer')) {
+    return {
+      kind: 'search' as const,
+      args: { category: 'Main' },
+    };
+  }
+
+  return null;
+}
+
+async function runFallbackSuggestion(message: string) {
+  const fallback = buildFallbackDishQuery(message);
+  if (!fallback) return null;
+
+  const toolData = fallback.kind === 'menu'
+    ? await executeTool('get_menu', {})
+    : await executeTool('search_dishes', fallback.args);
+
+  if ((toolData as any).dishes?.length) {
+    return { type: 'dishes' as const, data: (toolData as any).dishes };
+  }
+
+  const fallbackDishes = fallback.kind === 'menu'
+    ? RESTAURANT_SEED_DISHES.slice(0, 6)
+    : RESTAURANT_SEED_DISHES.filter((dish) => {
+        const caloriesOk = fallback.args.max_calories ? dish.calories <= Number(fallback.args.max_calories) : true;
+        const proteinOk = fallback.args.min_protein ? dish.protein >= Number(fallback.args.min_protein) : true;
+        const categoryOk = fallback.args.category ? dish.category === fallback.args.category : true;
+        return caloriesOk && proteinOk && categoryOk;
+      }).slice(0, 6);
+
+  if (fallbackDishes.length > 0) {
+    return { type: 'dishes' as const, data: fallbackDishes };
+  }
+
+  return null;
+}
+
+async function buildLocalAssistantResponse(message: string) {
+  const toolResult = await runFallbackSuggestion(message);
+
+  if (toolResult?.type === 'dishes' && toolResult.data.length > 0) {
+    const names = toolResult.data
+      .slice(0, 2)
+      .map((dish: { name: string }) => dish.name)
+      .join(' and ');
+    return {
+      message: names
+        ? `I found ${names}${toolResult.data.length > 2 ? ' and a few more menu options' : ''}.`
+        : 'I found a few matching dishes from the menu.',
+      toolResult,
+    };
+  }
+
+  const text = message.toLowerCase();
+  if (text.includes('book') || text.includes('reserve')) {
+    return {
+      message: 'I can help book a table. Share your name, phone number, date, time, and number of guests.',
+      toolResult: null,
+    };
+  }
+
+  return {
+    message: 'I can help with high-protein dishes, low-calorie options, vegetarian picks, and table bookings. Try asking for a goal or a dish type.',
+    toolResult,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -163,7 +270,7 @@ const GROQ_TOOLS = [
   },
 ];
 
-const SYSTEM_PROMPT = `You are Priya, the warm and knowledgeable AI dining assistant for Prathomix Restaurant in Jaipur.
+const SYSTEM_PROMPT = `You are Mix, the warm and knowledgeable AI dining assistant for Prathomix Restaurant in Jaipur.
 
 You help guests with:
 1. Finding dishes matching their macro/calorie goals — ALWAYS call search_dishes when asked about protein, calories, dietary restrictions, or specific nutrition.
@@ -173,7 +280,7 @@ You help guests with:
 
 Style: concise, friendly, enthusiastic about food. Use emojis sparingly.
 Restaurant details: Open 12:00–23:00 daily · Mi Road, Jaipur · +91-98765-43210
-When showing dishes, briefly highlight the top 1-2 results after the tool renders the cards.`;
+When showing dishes, briefly highlight the top 1-2 exact dish names returned by the tool after the cards render.`;
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN HANDLER
@@ -194,6 +301,17 @@ export async function POST(req: Request) {
     });
   }
 
+  const lastUserMessage = sanitizedMessages[sanitizedMessages.length - 1]?.content ?? '';
+
+  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
+    const localResponse = await buildLocalAssistantResponse(lastUserMessage);
+    return NextResponse.json({
+      message: localResponse.message,
+      toolResult: localResponse.toolResult,
+      provider: 'local-fallback',
+    });
+  }
+
   // ── PRIMARY: Gemini 1.5 Flash ──────────────────────────────
   try {
     if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
@@ -205,6 +323,7 @@ export async function POST(req: Request) {
       parts: [{ text: m.content }],
     }));
     const lastMsg = sanitizedMessages[sanitizedMessages.length - 1];
+    const fallbackQuery = lastMsg.content;
 
     let geminiLastError: Error | null = null;
 
@@ -247,7 +366,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
           message:    result.text() || 'Here are my recommendations for you!',
-          toolResult,
+          toolResult: toolResult ?? (await runFallbackSuggestion(fallbackQuery)),
           provider:  'gemini',
           model:     geminiModel,
         });
@@ -322,7 +441,7 @@ export async function POST(req: Request) {
 
           return NextResponse.json({
             message:    choice.message.content || 'Here are some great options!',
-            toolResult,
+            toolResult: toolResult ?? (await runFallbackSuggestion(sanitizedMessages[sanitizedMessages.length - 1].content)),
             provider:  'groq',
             model:     groqModel,
           });
@@ -336,10 +455,11 @@ export async function POST(req: Request) {
 
     } catch (groqError) {
       console.error('[Chat] Both AI providers failed:', groqError);
+      const localResponse = await buildLocalAssistantResponse(lastUserMessage);
       return NextResponse.json({
-        message:    "I'm having trouble connecting right now 😔 Please try again in a moment, or call us at +91-98765-43210!",
-        toolResult: null,
-        provider:  'error',
+        message: localResponse.message,
+        toolResult: localResponse.toolResult,
+        provider: 'local-fallback',
       });
     }
   }

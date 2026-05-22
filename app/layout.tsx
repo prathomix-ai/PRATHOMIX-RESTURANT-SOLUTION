@@ -1,13 +1,14 @@
+/* eslint-disable @next/next/no-page-custom-font */
 import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Prathomix Restaurant — Elegant Dining & Reservations',
-  description: 'A warm, premium restaurant experience with seamless table reservations and curated dining.',
+  description: 'A floating glassmorphism restaurant experience with premium dining, curated menus, and seamless reservations.',
 };
 
 export const viewport = {
-  themeColor: '#C85A17',
+  themeColor: '#D97706',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,8 +22,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="bg-warm-50 text-gray-900 antialiased">
-        <div className="min-h-screen texture-bg relative">
+      <body className="bg-[#FAF9F6] text-stone-900 antialiased">
+        <div className="min-h-screen relative isolate">
           {children}
         </div>
       </body>

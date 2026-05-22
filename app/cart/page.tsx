@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import SplitBill from '@/components/SplitBill';
 import { useCartStore } from '@/lib/store';
+import { addLocalOrder } from '@/lib/localOrders';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Trash2, Plus, Minus, Receipt, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
@@ -12,6 +13,7 @@ export default function CartPage() {
   const { items, removeItem, updateQty, total, clearCart } = useCartStore();
   const [showSplit, setShowSplit] = useState(false);
   const [ordered,  setOrdered]   = useState(false);
+  const [orderMode, setOrderMode] = useState<'server' | 'local' | null>(null);
   const [tableNumber, setTableNumber] = useState('');
   const [orderError, setOrderError] = useState('');
 
@@ -24,8 +26,13 @@ export default function CartPage() {
       return;
     }
 
+    if (items.length === 0) {
+      setOrderError('Your cart is empty. Add items before placing an order.');
+      return;
+    }
+
     try {
-      await fetch('/api/orders', {
+      const orderRes = await fetch('/api/orders', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -36,7 +43,12 @@ export default function CartPage() {
           table_number: parsedTableNumber,
         }),
       });
-      setOrderError('');
+
+      const orderPayload = await orderRes.json();
+      if (!orderRes.ok) {
+        throw new Error(orderPayload?.error || 'Order placement failed. Please try again.');
+      }
+
       await fetch('/api/whatsapp', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,11 +58,38 @@ export default function CartPage() {
           dishes: items.map((i) => i.name),
         }),
       });
+      setOrderError('');
+      setOrderMode('server');
+      clearCart();
+      setOrdered(true);
     } catch (e) {
-      console.error('Order error:', e);
+      addLocalOrder({
+        id: `local-${Date.now()}`,
+        table_number: parsedTableNumber,
+        dish_ids: items.map((i) => i.id),
+        dish_names: items.map((i) => i.name),
+        total_amount: grandTotal,
+        split_count: 1,
+        status: 'placed',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      await fetch('/api/whatsapp', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type:   'order',
+          amount: grandTotal,
+          dishes: items.map((i) => i.name),
+        }),
+      }).catch(() => undefined);
+
+      setOrderError('');
+      setOrderMode('local');
+      clearCart();
+      setOrdered(true);
     }
-    clearCart();
-    setOrdered(true);
   }
 
   /* ── Order Success ─────────────────────────────────── */
@@ -61,19 +100,24 @@ export default function CartPage() {
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="glass neon-border rounded-3xl p-10 text-center max-w-md">
+          className="glass rounded-3xl p-10 text-center max-w-md border border-warm-200 shadow-warm-lg">
           <div className="text-6xl mb-5">🎉</div>
           <h2
             className="font-display text-2xl gradient-text mb-3"
             style={{ fontFamily: 'Cinzel, serif' }}>
             Order Placed!
           </h2>
-          <p className="text-slate-400 mb-1">Your order is being prepared.</p>
-          <p className="text-xs text-emerald-400/80 mb-8">📱 WhatsApp confirmation sent (mock)</p>
+          <p className="text-gray-700 mb-1">Your order is being prepared.</p>
+          {orderMode === 'local' && (
+            <p className="text-xs text-accent-red mb-2">
+              Saved locally because live order sync is unavailable right now.
+            </p>
+          )}
+          <p className="text-xs text-accent-green/80 mb-8">📱 WhatsApp confirmation sent (mock)</p>
           <Link
             href="/menu"
-            className="inline-flex items-center gap-2 bg-cyan-500 text-black font-bold
-                       px-6 py-3 rounded-xl shadow-neon-cyan hover:bg-cyan-400 transition-all duration-200">
+            className="lift-3d shine-sweep inline-flex items-center gap-2 bg-primary-700 text-white font-bold
+                       px-6 py-3 rounded-xl shadow-warm-lg hover:bg-primary-800">
             Order More <ArrowRight className="w-4 h-4" />
           </Link>
         </motion.div>
@@ -87,7 +131,7 @@ export default function CartPage() {
       <main className="pt-24 pb-16 px-4 max-w-5xl mx-auto">
 
         <div className="flex items-center gap-3 mb-10">
-          <ShoppingCart className="w-6 h-6 text-cyan-400" />
+          <ShoppingCart className="w-6 h-6 text-primary-600" />
           <h1
             className="font-display text-3xl font-bold gradient-text"
             style={{ fontFamily: 'Cinzel, serif' }}>
@@ -105,9 +149,9 @@ export default function CartPage() {
             <p className="text-slate-500 mb-6">Your cart is empty</p>
             <Link
               href="/menu"
-              className="inline-flex items-center gap-2 glass border border-slate-700
-                         hover:border-cyan-500/30 text-slate-300 px-6 py-3 rounded-xl
-                         transition-all duration-200 hover:text-cyan-400">
+              className="inline-flex items-center gap-2 glass border border-warm-200
+                         hover:border-primary-400/30 text-stone-700 px-6 py-3 rounded-xl
+                         transition-all duration-200 hover:text-primary-700">
               Browse Menu
             </Link>
           </div>
@@ -122,7 +166,7 @@ export default function CartPage() {
                     key={item.id}
                     layout
                     exit={{ opacity: 0, x: -30 }}
-                    className="glass border border-slate-800 hover:border-slate-700 rounded-2xl
+                    className="glass border border-warm-200 hover:border-primary-400/30 rounded-2xl
                                p-4 flex gap-4 items-center transition-all duration-200">
 
                     <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
@@ -136,34 +180,34 @@ export default function CartPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-white text-sm truncate">{item.name}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">₹{item.price} each</p>
+                      <p className="font-medium text-primary-900 text-sm truncate">{item.name}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">₹{item.price} each</p>
 
                       {/* Qty controls */}
                       <div className="flex items-center gap-2 mt-2">
                         <button
                           onClick={() => updateQty(item.id, item.qty - 1)}
-                          className="w-6 h-6 rounded-md bg-slate-800 hover:bg-slate-700
+                          className="w-6 h-6 rounded-md bg-primary-600/10 hover:bg-primary-600/20 border border-primary-600/20
                                      flex items-center justify-center transition-colors">
-                          <Minus className="w-3 h-3" />
+                          <Minus className="w-3 h-3 text-primary-600" />
                         </button>
-                        <span className="text-sm font-bold w-5 text-center text-white">{item.qty}</span>
+                        <span className="text-sm font-bold w-5 text-center text-primary-900">{item.qty}</span>
                         <button
                           onClick={() => updateQty(item.id, item.qty + 1)}
-                          className="w-6 h-6 rounded-md bg-slate-800 hover:bg-slate-700
+                          className="w-6 h-6 rounded-md bg-primary-600/10 hover:bg-primary-600/20 border border-primary-600/20
                                      flex items-center justify-center transition-colors">
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3 h-3 text-primary-600" />
                         </button>
                       </div>
                     </div>
 
                     <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                      <p className="text-cyan-400 font-bold text-sm">
+                      <p className="text-primary-600 font-bold text-sm">
                         ₹{(item.price * item.qty).toFixed(2)}
                       </p>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="text-slate-600 hover:text-red-400 transition-colors">
+                        className="text-gray-500 hover:text-accent-red transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -174,16 +218,16 @@ export default function CartPage() {
 
             {/* Summary sidebar */}
             <div className="lg:col-span-2 flex flex-col gap-5">
-              <div className="glass neon-border rounded-2xl p-6">
+              <div className="glass rounded-2xl p-6 border border-warm-200 shadow-warm">
                 <h3
                   className="font-display text-lg font-semibold gradient-text mb-4 flex items-center gap-2"
                   style={{ fontFamily: 'Cinzel, serif' }}>
-                  <Receipt className="w-5 h-5 text-cyan-400" />
+                  <Receipt className="w-5 h-5 text-primary-600" />
                   Summary
                 </h3>
 
                 <div className="mb-5">
-                  <label className="text-xs text-slate-400 uppercase tracking-wider mb-1 block">
+                  <label className="text-xs text-gray-600 uppercase tracking-wider mb-1 block">
                     Table Number *
                   </label>
                   <input
@@ -195,43 +239,43 @@ export default function CartPage() {
                       setOrderError('');
                     }}
                     placeholder="Enter table number"
-                    className="w-full bg-transparent border border-slate-700 focus:border-cyan-500/50
-                               rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500
-                               outline-none transition-all focus:shadow-neon-sm" />
+                    className="w-full bg-white/45 backdrop-blur-xl border border-white/40 focus:border-primary-400/50
+                               rounded-xl px-4 py-3 text-sm text-primary-900 placeholder-gray-400
+                               outline-none transition-all focus:shadow-warm" />
                 </div>
 
                 <div className="space-y-2 mb-5">
-                  <div className="flex justify-between text-sm text-slate-400">
+                  <div className="flex justify-between text-sm text-gray-600">
                     <span>Subtotal</span>
                     <span>₹{total().toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-slate-400">
+                  <div className="flex justify-between text-sm text-gray-600">
                     <span>GST (5%)</span>
                     <span>₹{(total() * 0.05).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-white border-t border-slate-800 pt-3 mt-3">
+                  <div className="flex justify-between font-bold text-primary-900 border-t border-warm-200 pt-3 mt-3">
                     <span>Total</span>
-                    <span className="neon-text">₹{grandTotal.toFixed(2)}</span>
+                    <span className="gradient-text">₹{grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
 
                 <button
                   onClick={placeOrder}
                   disabled={!tableNumber.trim()}
-                  className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold
-                             shadow-neon-cyan transition-all duration-200 hover:scale-[1.02]
+                  className="w-full py-3 rounded-xl bg-primary-700 hover:bg-primary-800 text-white font-bold
+                             shadow-warm-lg lift-3d shine-sweep
                              active:scale-100 text-sm mb-2 disabled:opacity-60 disabled:scale-100 disabled:cursor-not-allowed">
                   Place Order
                 </button>
 
                 {orderError && (
-                  <p className="text-xs text-red-400 mb-3 text-center">{orderError}</p>
+                  <p className="text-xs text-accent-red mb-3 text-center">{orderError}</p>
                 )}
 
                 <button
                   onClick={() => setShowSplit(!showSplit)}
-                  className="w-full py-2.5 rounded-xl glass border border-slate-700
-                             hover:border-cyan-500/30 text-slate-400 hover:text-cyan-400
+                  className="w-full py-2.5 rounded-xl glass border border-warm-200
+                             hover:border-primary-400/30 text-stone-500 hover:text-primary-700
                              text-xs font-medium transition-all duration-200">
                   {showSplit ? '▲ Hide Split Bill' : '👥 Split the Bill'}
                 </button>
