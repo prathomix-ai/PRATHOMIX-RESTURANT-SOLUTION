@@ -12,10 +12,18 @@ export default function CartPage() {
   const { items, removeItem, updateQty, total, clearCart } = useCartStore();
   const [showSplit, setShowSplit] = useState(false);
   const [ordered,  setOrdered]   = useState(false);
+  const [tableNumber, setTableNumber] = useState('');
+  const [orderError, setOrderError] = useState('');
 
   const grandTotal = total() * 1.05; // + 5% GST
 
   async function placeOrder() {
+    const parsedTableNumber = Number(tableNumber);
+    if (!tableNumber.trim() || Number.isNaN(parsedTableNumber) || parsedTableNumber < 1) {
+      setOrderError('Please enter a valid table number before placing the order.');
+      return;
+    }
+
     try {
       await fetch('/api/orders', {
         method:  'POST',
@@ -25,8 +33,10 @@ export default function CartPage() {
           dish_names:   items.map((i) => i.name),
           total_amount: grandTotal,
           split_count:  1,
+          table_number: parsedTableNumber,
         }),
       });
+      setOrderError('');
       await fetch('/api/whatsapp', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -172,6 +182,24 @@ export default function CartPage() {
                   Summary
                 </h3>
 
+                <div className="mb-5">
+                  <label className="text-xs text-slate-400 uppercase tracking-wider mb-1 block">
+                    Table Number *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={tableNumber}
+                    onChange={(e) => {
+                      setTableNumber(e.target.value);
+                      setOrderError('');
+                    }}
+                    placeholder="Enter table number"
+                    className="w-full bg-transparent border border-slate-700 focus:border-cyan-500/50
+                               rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500
+                               outline-none transition-all focus:shadow-neon-sm" />
+                </div>
+
                 <div className="space-y-2 mb-5">
                   <div className="flex justify-between text-sm text-slate-400">
                     <span>Subtotal</span>
@@ -189,11 +217,16 @@ export default function CartPage() {
 
                 <button
                   onClick={placeOrder}
+                  disabled={!tableNumber.trim()}
                   className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold
                              shadow-neon-cyan transition-all duration-200 hover:scale-[1.02]
-                             active:scale-100 text-sm mb-2">
+                             active:scale-100 text-sm mb-2 disabled:opacity-60 disabled:scale-100 disabled:cursor-not-allowed">
                   Place Order
                 </button>
+
+                {orderError && (
+                  <p className="text-xs text-red-400 mb-3 text-center">{orderError}</p>
+                )}
 
                 <button
                   onClick={() => setShowSplit(!showSplit)}

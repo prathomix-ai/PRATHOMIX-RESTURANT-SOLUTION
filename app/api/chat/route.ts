@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
-import { supabase } from '@/lib/supabase';
+import { RESTAURANT_TABLES, supabase } from '@/lib/supabase';
 
 const GEMINI_MODELS = [
   process.env.GEMINI_MODEL,
@@ -28,7 +28,7 @@ async function executeTool(name: string, args: Record<string, unknown>) {
   };
 
   if (name === 'search_dishes') {
-    let q = supabase.from('dishes').select('*').eq('available', true);
+    let q = supabase.from(RESTAURANT_TABLES.dishes).select('*').eq('available', true);
     const minProtein  = toNumber(args.min_protein);
     const maxCalories = toNumber(args.max_calories);
     const maxProtein  = toNumber(args.max_protein);
@@ -45,7 +45,7 @@ async function executeTool(name: string, args: Record<string, unknown>) {
 
   if (name === 'book_table') {
     const { data, error } = await supabase
-      .from('bookings')
+      .from(RESTAURANT_TABLES.bookings)
       .insert({
         customer_name: args.customer_name,
         phone:         args.phone,
@@ -61,7 +61,7 @@ async function executeTool(name: string, args: Record<string, unknown>) {
 
   if (name === 'get_menu') {
     const { data } = await supabase
-      .from('dishes')
+      .from(RESTAURANT_TABLES.dishes)
       .select('name, price, calories, protein, category')
       .eq('available', true)
       .limit(20);

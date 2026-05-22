@@ -82,23 +82,23 @@ export default function AdminPage() {
 
   /* ── Login Screen ─────────────────────────────────── */
   if (!authenticated) return (
-    <div className="min-h-screen grid-bg flex items-center justify-center px-4">
+    <div className="min-h-screen texture-bg flex items-center justify-center px-4 bg-warm-50">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass neon-border rounded-2xl p-8 w-full max-w-sm">
+        className="glass border border-warm-200 rounded-2xl p-8 w-full max-w-sm shadow-warm-lg">
 
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/25 shadow-neon-sm
+          <div className="w-16 h-16 rounded-2xl bg-primary-600/10 border border-primary-600/25 shadow-warm
                           flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-cyan-400" />
+            <Shield className="w-8 h-8 text-primary-600" />
           </div>
           <h1
             className="font-display text-2xl font-bold gradient-text"
             style={{ fontFamily: 'Cinzel, serif' }}>
             Admin Access
           </h1>
-          <p className="text-xs text-slate-500 mt-1">Prathomix Restaurant Control Panel</p>
+          <p className="text-xs text-gray-500 mt-1">Prathomix Restaurant Control Panel</p>
         </div>
 
         <div className="relative mb-4">
@@ -108,26 +108,26 @@ export default function AdminPage() {
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             type={show ? 'text' : 'password'}
             placeholder="Enter admin password"
-            className="w-full bg-transparent border border-slate-700 focus:border-cyan-500/50
-                       rounded-xl px-4 py-3 pr-11 text-sm text-white placeholder-slate-500
-                       outline-none transition-all focus:shadow-neon-sm" />
+            className="w-full bg-transparent border border-warm-200 focus:border-primary-600/50
+                       rounded-xl px-4 py-3 pr-11 text-sm text-gray-900 placeholder-gray-500
+                       outline-none transition-all focus:shadow-warm" />
           <button
             onClick={() => setShow(!show)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors">
             {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
 
-        {pwErr && <p className="text-red-400 text-xs text-center mb-3">{pwErr}</p>}
+        {pwErr && <p className="text-accent-red text-xs text-center mb-3">{pwErr}</p>}
 
         <button
           onClick={handleLogin}
-          className="w-full py-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30
-                     text-cyan-400 font-semibold text-sm transition-all duration-200 hover:shadow-neon-sm">
+          className="w-full py-3 rounded-xl bg-primary-600/15 hover:bg-primary-600/25 border border-primary-600/30
+                     text-primary-600 font-semibold text-sm transition-all duration-200 hover:shadow-warm">
           Authenticate
         </button>
 
-        <p className="text-[10px] text-slate-700 text-center mt-5">
+        <p className="text-[10px] text-gray-600 text-center mt-5">
           This page is not linked from anywhere. Direct URL access only.
         </p>
       </motion.div>
@@ -136,31 +136,31 @@ export default function AdminPage() {
 
   /* ── Dashboard ────────────────────────────────────── */
   return (
-    <div className="min-h-screen grid-bg">
+    <div className="min-h-screen texture-bg bg-warm-50">
       {/* Admin Navbar */}
-      <div className="glass border-b border-white/5 sticky top-0 z-50">
+      <div className="glass border-b border-warm-200 sticky top-0 z-50 shadow-warm">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-cyan-400" />
+            <Zap className="w-4 h-4 text-primary-600" />
             <span
               className="font-display text-sm font-bold gradient-text"
               style={{ fontFamily: 'Cinzel, serif' }}>
               Prathomix Admin
             </span>
-            <span className="text-[10px] text-slate-600 border border-slate-800 rounded px-1.5 py-0.5 ml-1">
+            <span className="text-[10px] text-gray-600 border border-warm-200 rounded px-1.5 py-0.5 ml-1">
               v1.0
             </span>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={loadData}
-              className="text-slate-500 hover:text-cyan-400 transition-colors"
+              className="text-gray-600 hover:text-primary-600 transition-colors"
               title="Refresh data">
-              <RefreshCw className={`w-4 h-4 ${aLoading ? 'animate-spin text-cyan-400' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${aLoading ? 'animate-spin text-primary-600' : ''}`} />
             </button>
             <button
               onClick={() => setAuthenticated(false)}
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-400 transition-colors">
+              className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-accent-red transition-colors">
               <LogOut className="w-3.5 h-3.5" /> Exit
             </button>
           </div>
@@ -176,8 +176,8 @@ export default function AdminPage() {
               onClick={() => setTab(t)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2
                            ${tab === t
-                             ? 'bg-cyan-500/15 border border-cyan-400/50 text-cyan-400 shadow-neon-sm'
-                             : 'glass border border-slate-700 text-slate-300 hover:border-cyan-500/25'}`}>
+                             ? 'bg-primary-600/15 border border-primary-400/50 text-primary-600 shadow-warm'
+                             : 'glass border border-warm-200 text-gray-600 hover:border-primary-600/25'}`}>
               {t === 'analytics' ? <><BarChart2 className="w-4 h-4" /> AI Analytics</> : <><Database className="w-4 h-4" /> Inventory</>}
             </button>
           ))}
@@ -205,46 +205,46 @@ export default function AdminPage() {
                 ].map((s) => (
                   <div
                     key={s.label}
-                    className="glass border border-slate-800 hover:border-slate-700 rounded-2xl p-5
-                               transition-all duration-200">
-                    <s.icon className="w-5 h-5 text-cyan-400 mb-3 opacity-70" />
-                    <p className="text-2xl font-bold text-white">
-                      {aLoading ? <Loader2 className="w-5 h-5 animate-spin text-slate-600" /> : s.value}
+                    className="glass border border-warm-200 hover:border-primary-600/30 rounded-2xl p-5
+                               transition-all duration-200 shadow-card hover:shadow-warm">
+                    <s.icon className="w-5 h-5 text-primary-600 mb-3 opacity-70" />
+                    <p className="text-2xl font-bold text-gray-900">
+                      {aLoading ? <Loader2 className="w-5 h-5 animate-spin text-gray-400" /> : s.value}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">{s.label}</p>
                   </div>
                 ))}
               </div>
 
               {/* AI Insights */}
-              <div className="glass neon-border rounded-2xl p-6">
+              <div className="glass border border-warm-200 rounded-2xl p-6 shadow-warm-md">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-cyan-400" />
+                    <Zap className="w-5 h-5 text-primary-600" />
                     <h2
                       className="font-display text-lg font-semibold gradient-text"
                       style={{ fontFamily: 'Cinzel, serif' }}>
                       AI Business Insights
                     </h2>
                   </div>
-                  <span className="text-[10px] text-slate-600 border border-slate-800 rounded px-2 py-0.5">
+                  <span className="text-[10px] text-gray-600 border border-warm-200 rounded px-2 py-0.5">
                     Gemini → Groq
                   </span>
                 </div>
 
                 {aLoading ? (
-                  <div className="flex items-center gap-2 text-slate-500 text-sm">
-                    <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                  <div className="flex items-center gap-2 text-gray-600 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary-600" />
                     Generating AI insights from your data…
                   </div>
                 ) : analytics?.insights ? (
-                  <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                  <div className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
                     {analytics.insights}
                   </div>
                 ) : (
-                  <p className="text-slate-500 text-sm">
+                  <p className="text-gray-600 text-sm">
                     No AI insights yet. Make sure your Gemini or Groq API key is set in{' '}
-                    <code className="text-cyan-500/70">.env.local</code>, then add some bookings and orders.
+                    <code className="text-primary-600">.env.local</code>, then add some bookings and orders.
                   </p>
                 )}
               </div>
@@ -261,11 +261,11 @@ export default function AdminPage() {
               <div className="grid lg:grid-cols-2 gap-8">
 
                 {/* Add Dish Form */}
-                <div className="glass neon-border rounded-2xl p-6">
+                <div className="glass border border-warm-200 rounded-2xl p-6 shadow-warm-md">
                   <h2
                     className="font-display text-lg font-semibold gradient-text mb-5 flex items-center gap-2"
                     style={{ fontFamily: 'Cinzel, serif' }}>
-                    <PlusCircle className="w-5 h-5 text-cyan-400" />
+                    <PlusCircle className="w-5 h-5 text-primary-600" />
                     Add New Dish
                   </h2>
 
@@ -279,25 +279,25 @@ export default function AdminPage() {
                       { k: 'image_url',   label: 'Image URL',       placeholder: 'https://…',            type: 'url'    },
                     ].map((f) => (
                       <div key={f.k}>
-                        <label className="text-xs text-slate-400 mb-1 block">{f.label}</label>
+                        <label className="text-xs text-gray-600 mb-1 block">{f.label}</label>
                         <input
                           value={(form as any)[f.k]}
                           type={f.type}
                           placeholder={f.placeholder}
                           onChange={(e) => setForm((prev) => ({ ...prev, [f.k]: e.target.value }))}
-                          className="w-full bg-transparent border border-slate-700 focus:border-cyan-500/50
-                                     rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500
-                                     outline-none transition-all focus:shadow-neon-sm" />
+                          className="w-full bg-transparent border border-warm-200 focus:border-primary-600/50
+                                     rounded-xl px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-500
+                                     outline-none transition-all focus:shadow-warm" />
                       </div>
                     ))}
 
                     <div>
-                      <label className="text-xs text-slate-400 mb-1 block">Category</label>
+                      <label className="text-xs text-gray-600 mb-1 block">Category</label>
                       <select
                         value={form.category}
                         onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                        className="w-full bg-dark-800 border border-slate-700 focus:border-cyan-500/50
-                                   rounded-xl px-3.5 py-2.5 text-sm text-white outline-none transition-all">
+                        className="w-full bg-warm-50 border border-warm-200 focus:border-primary-600/50
+                                   rounded-xl px-3.5 py-2.5 text-sm text-gray-900 outline-none transition-all">
                         {['Main', 'High Protein', 'Low Cal', 'Vegetarian', 'Dessert', 'Drinks'].map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
@@ -307,9 +307,9 @@ export default function AdminPage() {
                     <button
                       onClick={addDish}
                       disabled={saving || !form.name.trim() || !form.price}
-                      className="py-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30
-                                 text-cyan-400 font-semibold text-sm transition-all duration-200
-                                 hover:shadow-neon-sm disabled:opacity-50 disabled:cursor-not-allowed
+                      className="py-3 rounded-xl bg-primary-600/15 hover:bg-primary-600/25 border border-primary-600/30
+                                 text-primary-600 font-semibold text-sm transition-all duration-200
+                                 hover:shadow-warm disabled:opacity-50 disabled:cursor-not-allowed
                                  flex items-center justify-center gap-2">
                       {saving ? (
                         <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
@@ -327,25 +327,25 @@ export default function AdminPage() {
                   <h2
                     className="font-display text-lg font-semibold gradient-text mb-5 flex items-center gap-2"
                     style={{ fontFamily: 'Cinzel, serif' }}>
-                    <ShoppingBag className="w-5 h-5 text-cyan-400" />
+                    <ShoppingBag className="w-5 h-5 text-primary-600" />
                     Current Menu ({dishes.length})
                   </h2>
 
                   <div className="flex flex-col gap-3 max-h-[620px] overflow-y-auto pr-1">
                     {aLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="h-16 glass rounded-xl animate-pulse border border-slate-800" />
+                        <div key={i} className="h-16 glass rounded-xl animate-pulse border border-warm-200" />
                       ))
                     ) : dishes.length === 0 ? (
-                      <p className="text-slate-500 text-sm text-center py-8">
+                      <p className="text-gray-600 text-sm text-center py-8">
                         No dishes yet. Add your first one!
                       </p>
                     ) : (
                       dishes.map((d: any) => (
                         <div
                           key={d.id}
-                          className="glass border border-slate-800 rounded-xl p-3 flex gap-3 items-center
-                                     hover:border-slate-700 transition-all duration-200">
+                          className="glass border border-warm-200 rounded-xl p-3 flex gap-3 items-center
+                                     hover:border-primary-600/30 transition-all duration-200 shadow-card">
                           <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
                             <Image
                               src={d.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'}

@@ -15,16 +15,50 @@ export default function MenuPage() {
   const [category, setCategory] = useState('All');
   const [search,   setSearch]   = useState('');
   const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/dishes')
-      .then((r) => r.json())
-      .then((d) => { setDishes(d); setFiltered(d); setLoading(false); });
+    let mounted = true;
+
+    async function loadDishes() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetch('/api/dishes', { cache: 'no-store' });
+        const payload = await res.json();
+
+        if (!res.ok) {
+          throw new Error(payload?.error || 'Failed to fetch dishes');
+        }
+
+        const dishList: Dish[] = Array.isArray(payload) ? payload : [];
+
+        if (!mounted) return;
+        setDishes(dishList);
+        setFiltered(dishList);
+      } catch (err: unknown) {
+        if (!mounted) return;
+        setDishes([]);
+        setFiltered([]);
+        setError(err instanceof Error ? err.message : 'Unable to load menu');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadDishes();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    let f = dishes;
-    if (category !== 'All') f = f.filter((d) => d.category === category);
+    let f = category === 'All'
+      ? [...dishes]
+      : dishes.filter((d) => d.category === category);
+
     if (search) f = f.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
     setFiltered(f);
   }, [category, search, dishes]);
@@ -83,6 +117,10 @@ export default function MenuPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-64 glass rounded-2xl animate-pulse border border-slate-800" />
             ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-20 text-red-300">
+            Could not load dishes: {error}
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-slate-500">

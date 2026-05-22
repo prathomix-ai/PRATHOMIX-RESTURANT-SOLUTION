@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Prathomix Restaurant — Next-Gen Dining',
-  description: 'AI-powered restaurant with voice ordering, macro tracking, and instant booking.',
+  title: 'Prathomix Restaurant — Elegant Dining & Reservations',
+  description: 'A warm, premium restaurant experience with seamless table reservations and curated dining.',
 };
 
 export const viewport = {
-  themeColor: '#00ffe7',
+  themeColor: '#C85A17',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,8 +21,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="bg-dark-900 text-slate-100 antialiased">
-        <div className="min-h-screen grid-bg relative">
+      <body className="bg-warm-50 text-gray-900 antialiased">
+        <div className="min-h-screen texture-bg relative">
           {children}
         </div>
       </body>

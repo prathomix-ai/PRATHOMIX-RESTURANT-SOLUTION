@@ -7,11 +7,29 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        dark: {
-          900: '#050508',
-          800: '#0a0a12',
-          700: '#111120',
-          600: '#1a1a2e',
+        primary: {
+          50:  '#FAF5F0',
+          100: '#F3E8DE',
+          200: '#E7D1BD',
+          300: '#D4A574',
+          400: '#C85A17',
+          500: '#B85016',
+          600: '#A13D0F',
+          700: '#8B2E1F',
+          800: '#6B2318',
+          900: '#4B1810',
+        },
+        warm: {
+          50:  '#F8F5F0',
+          100: '#F0EDE8',
+          200: '#E8E3DB',
+          300: '#D4A574',
+          400: '#C85A17',
+        },
+        accent: {
+          red:   '#8B2E1F',
+          green: '#2D5016',
+          gold:  '#D4A574',
         },
       },
       fontFamily: {
@@ -19,16 +37,18 @@ module.exports = {
         body: ['DM Sans', 'sans-serif'],
       },
       boxShadow: {
-        'neon-cyan': '0 0 10px #00ffe7, 0 0 30px #00ffe780, 0 0 60px #00ffe740',
-        'neon-sm':   '0 0 6px #00ffe7, 0 0 15px #00ffe750',
+        'warm':    '0 4px 15px rgba(200, 90, 23, 0.12)',
+        'warm-md': '0 8px 24px rgba(45, 45, 45, 0.08)',
+        'warm-lg': '0 12px 32px rgba(200, 90, 23, 0.15)',
+        'card':    '0 2px 12px rgba(45, 45, 45, 0.06)',
       },
       animation: {
-        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+        'pulse-elegant': 'pulseElegant 2s ease-in-out infinite',
       },
       keyframes: {
-        pulseGlow: {
-          '0%,100%': { boxShadow: '0 0 10px #00ffe7, 0 0 20px #00ffe750' },
-          '50%':     { boxShadow: '0 0 20px #00ffe7, 0 0 50px #00ffe780' },
+        pulseElegant: {
+          '0%,100%': { boxShadow: '0 4px 15px rgba(200, 90, 23, 0.12)' },
+          '50%':     { boxShadow: '0 8px 24px rgba(200, 90, 23, 0.2)' },
         },
       },
     },

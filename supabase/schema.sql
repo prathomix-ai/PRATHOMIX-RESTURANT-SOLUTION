@@ -36,12 +36,15 @@ CREATE TABLE IF NOT EXISTS bookings (
 -- ── Orders ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS orders (
   id           uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  table_number integer     NOT NULL CHECK (table_number > 0),
   dish_ids     uuid[]      NOT NULL,
   dish_names   text[]      NOT NULL,
   total_amount numeric(10,2) NOT NULL,
   split_count  integer     DEFAULT 1,
-  status       text        DEFAULT 'placed',
-  created_at   timestamptz DEFAULT now()
+  status       text        DEFAULT 'placed'
+                           CHECK (status IN ('placed','preparing','ready','served')),
+  created_at   timestamptz DEFAULT now(),
+  updated_at   timestamptz DEFAULT now()
 );
 
 -- ── RLS ───────────────────────────────────────────────────────────

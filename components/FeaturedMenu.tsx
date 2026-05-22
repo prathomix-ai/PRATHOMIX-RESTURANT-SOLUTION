@@ -1,16 +1,16 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase } from '@/lib/supabase';
 import DishCard from './DishCard';
 import type { Dish } from '@/lib/supabase';
 
 async function getFeatured(): Promise<Dish[]> {
   const { data } = await supabase
-    .from('dishes')
+    .from(RESTAURANT_TABLES.dishes)
     .select('*')
     .eq('available', true)
     .limit(6);
-  return (data as Dish[]) || [];
+  return (data && data.length > 0 ? (data as Dish[]) : RESTAURANT_SEED_DISHES.slice(0, 6)) || [];
 }
 
 export default async function FeaturedMenu() {
@@ -20,7 +20,7 @@ export default async function FeaturedMenu() {
     <section className="py-20 px-4 max-w-7xl mx-auto">
       <div className="flex items-end justify-between mb-10">
         <div>
-          <p className="text-xs text-cyan-400 uppercase tracking-widest mb-2 font-medium">
+          <p className="text-xs text-primary-600 uppercase tracking-widest mb-2 font-medium">
             Chef&apos;s Selection
           </p>
           <h2
@@ -31,7 +31,7 @@ export default async function FeaturedMenu() {
         </div>
         <Link
           href="/menu"
-          className="flex items-center gap-1 text-sm text-cyan-400 hover:text-cyan-300
+          className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700
                      transition-colors duration-200 group">
           Full Menu
           <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -39,10 +39,10 @@ export default async function FeaturedMenu() {
       </div>
 
       {dishes.length === 0 ? (
-        <div className="text-center py-24 glass rounded-2xl border border-slate-800">
-          <p className="text-slate-400 mb-2">No dishes found.</p>
-          <p className="text-xs text-slate-600">
-            Run <code className="text-cyan-500/70">supabase/schema.sql</code> in your Supabase SQL Editor to seed sample data.
+        <div className="text-center py-24 glass rounded-2xl border border-warm-200">
+          <p className="text-gray-600 mb-2">No dishes found.</p>
+          <p className="text-xs text-gray-500">
+            Run <code className="text-primary-600">supabase/schema.sql</code> in your Supabase SQL Editor to seed sample data.
           </p>
         </div>
       ) : (

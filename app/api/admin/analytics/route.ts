@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
-import { supabase } from '@/lib/supabase';
+import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase } from '@/lib/supabase';
 
 export async function GET() {
   // ── Fetch raw data in parallel ──────────────────────────
   const [dishRes, bookRes, orderRes] = await Promise.all([
-    supabase.from('dishes').select('name, price, calories, protein, category'),
-    supabase.from('bookings').select('customer_name, date, time, guests, status').order('created_at', { ascending: false }).limit(20),
-    supabase.from('orders').select('total_amount, split_count, created_at').order('created_at', { ascending: false }).limit(20),
+    supabase.from(RESTAURANT_TABLES.dishes).select('name, price, calories, protein, category'),
+    supabase.from(RESTAURANT_TABLES.bookings).select('customer_name, date, time, guests, status').order('created_at', { ascending: false }).limit(20),
+    supabase.from(RESTAURANT_TABLES.orders).select('total_amount, split_count, created_at').order('created_at', { ascending: false }).limit(20),
   ]);
 
-  const dishes   = dishRes.data   ?? [];
+  const dishes   = (dishRes.data && dishRes.data.length > 0 ? dishRes.data : RESTAURANT_SEED_DISHES) ?? [];
   const bookings = bookRes.data   ?? [];
   const orders   = orderRes.data  ?? [];
 
