@@ -53,7 +53,7 @@ export default function Navbar() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setLocOpen(true)}
-                className="lift-3d shine-sweep hidden sm:flex items-center gap-1.5 text-xs text-stone-600 hover:text-primary-700
+                  className="lift-3d shine-sweep float-y-slow hidden sm:flex items-center gap-1.5 text-xs text-stone-600 hover:text-primary-700
                            border border-warm-200 hover:border-primary-400 rounded-full px-3 py-1.5
                            transition-all duration-200 hover:shadow-warm">
                 <MapPin className="w-3.5 h-3.5" />
@@ -61,7 +61,7 @@ export default function Navbar() {
               </button>
 
               <Link href="/cart" className="relative">
-                <div className="lift-3d w-9 h-9 rounded-full glass border border-warm-200 hover:border-primary-400
+                  <div className="lift-3d float-y w-9 h-9 rounded-full glass border border-warm-200 hover:border-primary-400
                                 flex items-center justify-center transition-all duration-200 hover:shadow-warm">
                   <ShoppingCart className="w-4 h-4 text-stone-600" />
                 </div>

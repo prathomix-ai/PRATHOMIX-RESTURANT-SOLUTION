@@ -1,11 +1,16 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
-import ChatInterface from '@/components/ChatInterface';
 import DishCard from '@/components/DishCard';
 import { motion } from 'framer-motion';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import type { Dish } from '@/lib/supabase';
+
+const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
+  ssr: false,
+  loading: () => null,
+});
 
 const CATEGORIES = ['All', 'High Protein', 'Low Cal', 'Vegetarian', 'Main'];
 
@@ -13,11 +18,11 @@ const normalize = (value: string) => value.trim().toLowerCase();
 
 export default function MenuPage() {
   const [dishes,   setDishes]   = useState<Dish[]>([]);
-  const [filtered, setFiltered] = useState<Dish[]>([]);
   const [category, setCategory] = useState('All');
   const [search,   setSearch]   = useState('');
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
+  const deferredSearch = useDeferredValue(search);
 
   const gridVariants = {
     hidden: { opacity: 0 },
@@ -31,13 +36,13 @@ export default function MenuPage() {
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 28, scale: 0.98 },
+    hidden: { opacity: 0, y: 32, scale: 0.96, rotateX: 8 },
     show: {
       opacity: 1,
       y: 0,
       scale: 1,
       transition: {
-        duration: 0.55,
+        duration: 0.68,
         ease: [0.22, 1, 0.36, 1],
       },
     },
@@ -62,11 +67,9 @@ export default function MenuPage() {
 
         if (!mounted) return;
         setDishes(dishList);
-        setFiltered(dishList);
       } catch (err: unknown) {
         if (!mounted) return;
         setDishes([]);
-        setFiltered([]);
         setError(err instanceof Error ? err.message : 'Unable to load menu');
       } finally {
         if (mounted) setLoading(false);
@@ -80,22 +83,22 @@ export default function MenuPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let f = normalize(category) === 'all'
-      ? [...dishes]
+  const filtered = useMemo(() => {
+    let next = normalize(category) === 'all'
+      ? dishes
       : dishes.filter((d) => normalize(d.category) === normalize(category));
 
-    if (search) {
-      const query = normalize(search);
-      f = f.filter((d) =>
+    const query = normalize(deferredSearch);
+    if (query) {
+      next = next.filter((d) =>
         [d.name, d.description, d.category]
           .filter(Boolean)
           .some((field) => normalize(String(field)).includes(query))
       );
     }
 
-    setFiltered(f);
-  }, [category, search, dishes]);
+    return next;
+  }, [category, deferredSearch, dishes]);
 
   return (
     <>
@@ -103,7 +106,11 @@ export default function MenuPage() {
       <main className="pt-24 pb-16 px-4 max-w-[96rem] mx-auto">
 
         {/* Header */}
-        <div className="text-center mb-12">
+        <motion.div
+          className="text-center mb-12"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}>
           <p className="text-xs text-primary-600 uppercase tracking-widest mb-2 font-medium">
             Curated for your goals
           </p>
@@ -115,10 +122,14 @@ export default function MenuPage() {
           <p className="text-stone-500 text-sm">
             Filter by nutrition goals · Ask Mix for AI-powered personalized picks
           </p>
-        </div>
+        </motion.div>
 
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.62, delay: 0.04, ease: [0.22, 1, 0.36, 1] }}
+          className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
@@ -135,7 +146,7 @@ export default function MenuPage() {
               <button
                 key={c}
                 onClick={() => setCategory(c)}
-                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200
+                className={`lift-3d px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300
                              ${category === c
                                ? 'bg-primary-600/10 border border-primary-400/40 text-primary-700 shadow-warm'
                                : 'glass border border-warm-200 text-stone-600 hover:border-primary-400/30 hover:text-primary-700'}`}>
@@ -143,9 +154,9 @@ export default function MenuPage() {
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="mb-4 flex items-center justify-between text-xs text-stone-500">
+        <div className="mb-4 flex items-center justify-between text-xs text-stone-500 paint-boost">
           <span>
             {loading
               ? 'Loading menu from Supabase...'
@@ -156,9 +167,9 @@ export default function MenuPage() {
 
         {/* Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 paint-boost">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-64 glass rounded-2xl animate-pulse border border-slate-800" />
+              <div key={i} className="h-64 glass rounded-2xl animate-pulse border border-slate-800 float-y-slow" />
             ))}
           </div>
         ) : error ? (
@@ -170,7 +181,7 @@ export default function MenuPage() {
             No dishes match your current filter.
           </div>
         ) : (
-          <motion.div layout variants={gridVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-5">
+          <motion.div layout variants={gridVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-5 paint-boost">
             {filtered.map((dish) => (
               <motion.div key={dish.id} layout variants={itemVariants}>
                 <DishCard dish={dish} />

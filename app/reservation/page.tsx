@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -17,7 +18,11 @@ import {
   Users,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-import ChatInterface from '@/components/ChatInterface';
+
+const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
+  ssr: false,
+  loading: () => null,
+});
 
 type FormState = {
   fullName: string;
@@ -205,15 +210,15 @@ export default function ReservationPage() {
             </p>
 
               <div className="grid sm:grid-cols-3 gap-3 mb-8">
-              <div className="rounded-2xl bg-white/35 backdrop-blur-xl border border-white/40 p-4 text-left shadow-warm">
+              <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 text-left shadow-warm">
                 <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Booking ID</p>
                 <p className="text-sm font-semibold text-gray-900">#{String(success.id ?? '').slice(0, 8).toUpperCase()}</p>
               </div>
-              <div className="rounded-2xl bg-white/35 backdrop-blur-xl border border-white/40 p-4 text-left shadow-warm">
+              <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 text-left shadow-warm">
                 <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Guests</p>
                 <p className="text-sm font-semibold text-gray-900">{String(success.guests)} guest{Number(success.guests) > 1 ? 's' : ''}</p>
               </div>
-              <div className="rounded-2xl bg-white/35 backdrop-blur-xl border border-white/40 p-4 text-left shadow-warm">
+              <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 text-left shadow-warm">
                 <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Date</p>
                 <p className="text-sm font-semibold text-gray-900">{formatReservationDate(String(success.date))}</p>
               </div>
@@ -248,7 +253,7 @@ export default function ReservationPage() {
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}>
+              transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }}>
               <div className="inline-flex items-center gap-2 rounded-full glass border border-primary-600/15 px-4 py-2 mb-6 shadow-warm">
                 <Sparkles className="w-4 h-4 text-primary-600" />
                 <span className="text-xs uppercase tracking-[0.3em] text-primary-700 font-semibold">
@@ -265,17 +270,17 @@ export default function ReservationPage() {
               </p>
 
               <div className="grid sm:grid-cols-3 gap-3 max-w-2xl">
-                <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card">
+                  <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
                   <Clock3 className="w-5 h-5 text-primary-600 mb-2" />
                   <p className="text-sm font-semibold text-gray-900">Quick confirmation</p>
                   <p className="text-xs text-gray-600 mt-1">Receive booking details instantly.</p>
                 </div>
-                <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card">
+                  <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
                   <HeartHandshake className="w-5 h-5 text-accent-green mb-2" />
                   <p className="text-sm font-semibold text-gray-900">Warm service</p>
                   <p className="text-xs text-gray-600 mt-1">Every reservation gets personal attention.</p>
                 </div>
-                <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card">
+                  <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
                   <MapPin className="w-5 h-5 text-accent-red mb-2" />
                   <p className="text-sm font-semibold text-gray-900">Jaipur location</p>
                   <p className="text-xs text-gray-600 mt-1">A refined space in the heart of the city.</p>
@@ -286,7 +291,7 @@ export default function ReservationPage() {
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.1 }}>
+              transition={{ duration: 0.66, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}>
               <div
                 className="relative overflow-hidden min-h-[380px] rounded-[2rem] border border-warm-200 shadow-warm-lg bg-cover bg-center"
                 style={{
@@ -312,7 +317,7 @@ export default function ReservationPage() {
             <motion.form
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.12 }}
+              transition={{ duration: 0.68, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
               onSubmit={handleSubmit}
               className="glass border border-warm-200 rounded-[2rem] p-6 sm:p-8 shadow-warm-lg">
               <div className="flex items-start justify-between gap-4 mb-8">
@@ -340,7 +345,7 @@ export default function ReservationPage() {
                     onChange={(e) => updateField('fullName', e.target.value)}
                     placeholder="Your full name"
                     autoComplete="name"
-                    className="bg-white/45 backdrop-blur-xl border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-500 outline-none transition-all focus:shadow-warm"
+                    className="bg-white/45 backdrop-blur-md border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-500 outline-none transition-all focus:shadow-warm"
                     aria-invalid={Boolean(errors.fullName)}
                   />
                   {errors.fullName && <p className="text-xs text-accent-red">{errors.fullName}</p>}
@@ -357,7 +362,7 @@ export default function ReservationPage() {
                     type="tel"
                     inputMode="tel"
                     autoComplete="tel"
-                    className="bg-white/45 backdrop-blur-xl border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-500 outline-none transition-all focus:shadow-warm"
+                    className="bg-white/45 backdrop-blur-md border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-500 outline-none transition-all focus:shadow-warm"
                     aria-invalid={Boolean(errors.phone)}
                   />
                   {errors.phone && <p className="text-xs text-accent-red">{errors.phone}</p>}
@@ -372,7 +377,7 @@ export default function ReservationPage() {
                     onChange={(e) => updateField('date', e.target.value)}
                     type="date"
                     min={minDate}
-                    className="bg-white/45 backdrop-blur-xl border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-all focus:shadow-warm [color-scheme:light]"
+                    className="bg-white/45 backdrop-blur-md border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-all focus:shadow-warm [color-scheme:light]"
                     aria-invalid={Boolean(errors.date)}
                   />
                   {errors.date && <p className="text-xs text-accent-red">{errors.date}</p>}
@@ -385,7 +390,7 @@ export default function ReservationPage() {
                   <select
                     value={form.timeSlot}
                     onChange={(e) => updateField('timeSlot', e.target.value)}
-                    className="bg-white/45 backdrop-blur-xl border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-all focus:shadow-warm"
+                    className="bg-white/45 backdrop-blur-md border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-all focus:shadow-warm"
                     aria-invalid={Boolean(errors.timeSlot)}>
                     {TIME_SLOTS.map((slot) => (
                       <option key={slot.value} value={slot.value}>
@@ -404,7 +409,7 @@ export default function ReservationPage() {
                 <select
                   value={form.guests}
                   onChange={(e) => updateField('guests', e.target.value)}
-                  className="bg-white/45 backdrop-blur-xl border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-all focus:shadow-warm"
+                  className="bg-white/45 backdrop-blur-md border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none transition-all focus:shadow-warm"
                   aria-invalid={Boolean(errors.guests)}>
                   {GUEST_OPTIONS.map((count) => (
                     <option key={count} value={count}>
@@ -424,7 +429,7 @@ export default function ReservationPage() {
                   onChange={(e) => updateField('specialRequests', e.target.value)}
                   placeholder="Dietary needs, birthday celebration, quiet corner, etc."
                   rows={4}
-                  className="bg-white/45 backdrop-blur-xl border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-500 outline-none transition-all focus:shadow-warm resize-none"
+                  className="bg-white/45 backdrop-blur-md border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-500 outline-none transition-all focus:shadow-warm resize-none"
                 />
               </div>
 
@@ -449,28 +454,28 @@ export default function ReservationPage() {
             <motion.aside
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, delay: 0.18 }}
+              transition={{ duration: 0.68, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
               className="glass border border-warm-200 rounded-[2rem] p-6 shadow-warm-md">
               <p className="text-xs uppercase tracking-[0.35em] text-primary-700 font-semibold mb-4">
                 Reservation Notes
               </p>
 
               <div className="space-y-4">
-                <div className="rounded-2xl bg-white/35 backdrop-blur-xl border border-white/40 p-4 shadow-warm">
+                <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 shadow-warm lift-3d">
                   <p className="text-sm font-semibold text-gray-900 mb-1">Ideal for</p>
                   <p className="text-sm text-gray-600 leading-relaxed">
                     Date nights, family dinners, birthday celebrations, and relaxed business meals.
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/35 backdrop-blur-xl border border-white/40 p-4 shadow-warm">
+                <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 shadow-warm lift-3d">
                   <p className="text-sm font-semibold text-gray-900 mb-1">Open daily</p>
                   <p className="text-sm text-gray-600 leading-relaxed">
                     12:00 PM - 11:00 PM · Mi Road, Jaipur
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/35 backdrop-blur-xl border border-white/40 p-4 shadow-warm">
+                <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 shadow-warm lift-3d">
                   <p className="text-sm font-semibold text-gray-900 mb-2">Need something special?</p>
                   <p className="text-sm text-gray-600 leading-relaxed">
                     Add special requests in the form and our team will do their best to accommodate them.

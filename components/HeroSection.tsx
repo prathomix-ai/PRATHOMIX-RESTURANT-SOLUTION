@@ -3,27 +3,27 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Zap } from 'lucide-react';
 
-const MotionLink = motion(Link);
+const MotionLink = motion.create(Link);
 
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.11,
-      delayChildren: 0.06,
+      staggerChildren: 0.12,
+      delayChildren: 0.04,
     },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 22, scale: 0.98 },
+  hidden: { opacity: 0, y: 28, scale: 0.96, rotateX: 8 },
   show: {
     opacity: 1,
     y: 0,
     scale: 1,
     transition: {
-      duration: 0.65,
+      duration: 0.72,
       ease: [0.22, 1, 0.36, 1],
     },
   },
@@ -87,18 +87,18 @@ export default function HeroSection() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <MotionLink
             href="/menu"
-            whileHover={{ scale: 1.05, y: -4 }}
+            whileHover={{ scale: 1.06, y: -6 }}
             whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             className="lift-3d shine-sweep float-y flex items-center gap-2 bg-primary-700 hover:bg-primary-800 text-white font-bold
                        px-8 py-3.5 rounded-xl shadow-warm-lg text-sm uppercase tracking-wide w-full sm:w-auto justify-center">
             Explore Menu <ArrowRight className="w-4 h-4" />
           </MotionLink>
           <MotionLink
             href="/reservation"
-            whileHover={{ scale: 1.05, y: -4 }}
+            whileHover={{ scale: 1.06, y: -6 }}
             whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             className="lift-3d shine-sweep float-y-delayed flex items-center gap-2 glass border border-warm-200 hover:border-primary-400/30
                        text-stone-700 hover:text-primary-700 font-medium px-8 py-3.5 rounded-xl
                        shadow-warm text-sm w-full sm:w-auto justify-center">

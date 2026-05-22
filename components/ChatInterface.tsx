@@ -22,7 +22,7 @@ const INITIAL: Message = {
   id: '0',
   role: 'assistant',
   content:
-    "Hi! I'm Mix, your AI dining assistant 🍽️  I can help you find high-protein dishes, book a table, or answer any menu questions. You can also tap the mic to speak!",
+    "Hi! I'm MIX, your AI dining assistant 🍽️  I can help you find high-protein dishes, book a table, or answer any menu questions. You can also tap the mic to speak!",
 };
 
 export default function ChatInterface() {
@@ -93,10 +93,10 @@ export default function ChatInterface() {
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
         aria-label="Open AI chat"
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-2xl shadow-warm-lg
+        className="fixed bottom-6 right-5 sm:right-6 z-40 w-16 h-16 rounded-[1.2rem] shadow-warm-xl
                    bg-gradient-to-br from-primary-600 to-primary-700
                    flex items-center justify-center text-white">
-        {open ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+        {open ? <X className="w-7 h-7" /> : <MessageSquare className="w-7 h-7" />}
       </motion.button>
 
       {/* Chat Panel */}
@@ -107,8 +107,8 @@ export default function ChatInterface() {
             animate={{ opacity: 1, y: 0,  scale: 1    }}
             exit={{    opacity: 0, y: 24, scale: 0.95 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="fixed bottom-20 right-4 sm:right-6 z-40
-                       w-[min(82vw,360px)] sm:w-[360px] h-[min(74vh,640px)] max-h-[calc(100vh-5.5rem)]
+              className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 z-40
+                         w-[calc(100vw-2rem)] sm:w-[360px] h-[min(74vh,640px)] max-h-[calc(100vh-5.5rem)]
                        glass border border-warm-200 rounded-2xl flex flex-col overflow-hidden shadow-warm-lg">
 
             {/* Header */}
@@ -118,7 +118,7 @@ export default function ChatInterface() {
                 <Bot className="w-4 h-4 text-primary-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-primary-900">Mix — AI Assistant</p>
+                <p className="text-sm font-semibold text-primary-900">MIX — AI Assistant</p>
                 <p className="text-xs text-accent-green flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent-green inline-block animate-pulse" />
                   Online · Powered by PRATHOMIX

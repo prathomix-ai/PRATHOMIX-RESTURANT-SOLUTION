@@ -1,22 +1,23 @@
+'use client';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Calendar, ArrowRight } from 'lucide-react';
 
-const MotionLink = motion(Link);
+const MotionLink = motion.create(Link);
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  hidden: { opacity: 0, y: 26, scale: 0.96, rotateX: 8 },
   show: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.62, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
   },
 };
 
 export default function BookingBanner() {
   return (
-    <section className="py-16 px-4">
+    <section className="py-16 px-4 paint-boost">
       <motion.div
         initial="hidden"
         whileInView="show"
@@ -44,9 +45,9 @@ export default function BookingBanner() {
         <MotionLink
           href="/reservation"
           variants={itemVariants}
-          whileHover={{ scale: 1.06, y: -4 }}
+          whileHover={{ scale: 1.07, y: -6 }}
           whileTap={{ scale: 0.98 }}
-          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
           className="lift-3d shine-sweep float-y-delayed inline-flex items-center gap-2 bg-primary-700 hover:bg-primary-800 text-white font-bold
                      px-8 py-3.5 rounded-xl shadow-warm-lg text-sm">
           Book Now — It&apos;s Free

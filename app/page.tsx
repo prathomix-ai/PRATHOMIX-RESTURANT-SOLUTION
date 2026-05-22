@@ -1,9 +1,14 @@
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
-import ChatInterface from '@/components/ChatInterface';
 import HeroSection from '@/components/HeroSection';
 import FeaturedMenu from '@/components/FeaturedMenu';
 import BookingBanner from '@/components/BookingBanner';
+
+const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
+  ssr: false,
+  loading: () => null,
+});
 
 export default function HomePage() {
   return (

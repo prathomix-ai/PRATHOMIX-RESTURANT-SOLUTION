@@ -20,7 +20,7 @@ export default async function FeaturedMenu() {
   const dishes = await getFeatured();
 
   return (
-    <section className="py-20 px-4">
+    <section className="py-20 px-4 paint-boost">
       <div className="float-surface max-w-7xl mx-auto rounded-[2.5rem] p-6 sm:p-8 lg:p-10">
       <div className="flex items-end justify-between mb-10">
         <div>
