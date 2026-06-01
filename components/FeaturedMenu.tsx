@@ -6,14 +6,25 @@ import DishCard from './DishCard';
 import type { Dish } from '@/lib/supabase';
 
 async function getFeatured(): Promise<Dish[]> {
-  await ensureRestaurantDishesSeeded();
+  try {
+    await ensureRestaurantDishesSeeded();
 
-  const { data } = await supabase
-    .from(RESTAURANT_TABLES.dishes)
-    .select('*')
-    .eq('available', true)
-    .limit(6);
-  return (data && data.length > 0 ? (data as Dish[]) : RESTAURANT_SEED_DISHES.slice(0, 6)) || [];
+    const { data, error } = await supabase
+      .from(RESTAURANT_TABLES.dishes)
+      .select('*')
+      .eq('available', true)
+      .limit(6);
+
+    if (error) {
+      console.error('[FeaturedMenu] Failed to load featured dishes:', error);
+      return RESTAURANT_SEED_DISHES.slice(0, 6);
+    }
+
+    return (data && data.length > 0 ? (data as Dish[]) : RESTAURANT_SEED_DISHES.slice(0, 6)) || [];
+  } catch (error) {
+    console.error('[FeaturedMenu] Unexpected featured menu failure:', error);
+    return RESTAURANT_SEED_DISHES.slice(0, 6);
+  }
 }
 
 export default async function FeaturedMenu() {

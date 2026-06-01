@@ -52,14 +52,14 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Missing order_id or status' }, { status: 400 });
   }
 
-  const validStatuses = ['placed', 'preparing', 'ready', 'served'];
+  const validStatuses = ['placed', 'preparing', 'ready', 'served', 'completed'];
   if (!validStatuses.includes(status)) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
   }
 
   const { data, error } = await supabase
     .from(RESTAURANT_TABLES.orders)
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status })
     .eq('id', order_id)
     .select()
     .single();

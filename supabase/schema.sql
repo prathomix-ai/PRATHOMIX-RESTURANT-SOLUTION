@@ -27,8 +27,9 @@ CREATE TABLE IF NOT EXISTS bookings (
   date          date        NOT NULL,
   time          time        NOT NULL,
   guests        integer     NOT NULL CHECK (guests > 0 AND guests <= 20),
-  status        text        DEFAULT 'confirmed'
-                            CHECK (status IN ('confirmed','pending','cancelled')),
+  table_number  integer     CHECK (table_number > 0),
+  status        text        DEFAULT 'reserved'
+                            CHECK (status IN ('reserved','seated','completed','confirmed','pending','cancelled')),
   notes         text,
   created_at    timestamptz DEFAULT now()
 );
@@ -42,15 +43,57 @@ CREATE TABLE IF NOT EXISTS orders (
   total_amount numeric(10,2) NOT NULL,
   split_count  integer     DEFAULT 1,
   status       text        DEFAULT 'placed'
-                           CHECK (status IN ('placed','preparing','ready','served')),
+                           CHECK (status IN ('placed','preparing','ready','served','completed')),
   created_at   timestamptz DEFAULT now(),
   updated_at   timestamptz DEFAULT now()
+);
+
+-- ── Staff Access ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS staff_access (
+  role        text        PRIMARY KEY,
+  access_code text        NOT NULL,
+  passcode    text
+);
+
+-- ── Staff Profiles ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS staff_profiles (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  employee_code text      UNIQUE,
+  name        text        NOT NULL,
+  role        text        NOT NULL,
+  phone       text        NOT NULL,
+  salary      numeric(10,2) NOT NULL,
+  passcode    text,
+  created_at  timestamptz DEFAULT now()
+);
+
+-- ── Attendance ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS attendance (
+  id              uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  staff_id        uuid        NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+  attendance_date date        NOT NULL,
+  status          text        DEFAULT 'present' CHECK (status IN ('present', 'absent')),
+  created_at      timestamptz DEFAULT now(),
+  UNIQUE (staff_id, attendance_date)
+);
+
+-- ── Leave Requests ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS leave_requests (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  staff_id    uuid        NOT NULL REFERENCES staff_profiles(id) ON DELETE CASCADE,
+  status      text        DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reason      text,
+  created_at  timestamptz DEFAULT now()
 );
 
 -- ── RLS ───────────────────────────────────────────────────────────
 ALTER TABLE dishes   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_access ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leave_requests ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public read dishes"    ON dishes   FOR SELECT USING (true);
 CREATE POLICY "Public read bookings"  ON bookings FOR SELECT USING (true);
@@ -59,6 +102,57 @@ CREATE POLICY "Allow insert bookings" ON bookings FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow insert orders"   ON orders   FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow insert dishes"   ON dishes   FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow update dishes"   ON dishes   FOR UPDATE USING (true);
+CREATE POLICY "Allow update staff access" ON staff_access FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Public read staff access" ON staff_access FOR SELECT USING (true);
+CREATE POLICY "Public read staff profiles" ON staff_profiles FOR SELECT USING (true);
+CREATE POLICY "Allow insert staff profiles" ON staff_profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update staff profiles" ON staff_profiles FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow delete staff profiles" ON staff_profiles FOR DELETE USING (true);
+CREATE POLICY "Public read attendance" ON attendance FOR SELECT USING (true);
+CREATE POLICY "Allow insert attendance" ON attendance FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public read leave requests" ON leave_requests FOR SELECT USING (true);
+CREATE POLICY "Allow insert leave requests" ON leave_requests FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update leave requests" ON leave_requests FOR UPDATE USING (true) WITH CHECK (true);
+
+CREATE OR REPLACE FUNCTION verify_staff_access(p_role text, p_code text)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM staff_access
+    WHERE role = p_role
+      AND COALESCE(passcode, access_code) = p_code
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION verify_staff_access(text, text) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION update_staff_access_code(p_role text, p_code text)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  INSERT INTO staff_access (role, access_code)
+  VALUES (p_role, p_code)
+  ON CONFLICT (role) DO UPDATE
+  SET access_code = EXCLUDED.access_code;
+
+  SELECT true;
+$$;
+
+GRANT EXECUTE ON FUNCTION update_staff_access_code(text, text) TO anon, authenticated;
+
+INSERT INTO staff_access (role, access_code, passcode) VALUES
+  ('admin', 'prathomix2024', 'prathomix2024'),
+  ('reception', 'reception2026', 'reception2026'),
+  ('kitchen', 'kitchen2026', 'kitchen2026')
+ON CONFLICT (role) DO UPDATE
+SET access_code = EXCLUDED.access_code,
+    passcode = EXCLUDED.passcode;
 
 -- ── Seed Sample Dishes ────────────────────────────────────────────
 INSERT INTO dishes (name, description, price, calories, protein, image_url, category) VALUES

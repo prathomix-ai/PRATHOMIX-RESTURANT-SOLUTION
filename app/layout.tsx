@@ -13,7 +13,7 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning={true}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[#FAF9F6] text-stone-900 antialiased">
+      <body className="bg-[#FAF9F6] text-stone-900 antialiased" suppressHydrationWarning={true}>
         <div className="min-h-screen relative isolate">
           {children}
         </div>

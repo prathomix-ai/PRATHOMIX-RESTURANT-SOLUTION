@@ -4,6 +4,9 @@ export const RESTAURANT_TABLES = {
   dishes: 'dishes',
   bookings: 'bookings',
   orders: 'orders',
+  staffProfiles: 'staff_profiles',
+  attendance: 'attendance',
+  leaveRequests: 'leave_requests',
 } as const;
 
 export const RESTAURANT_SEED_DISHES: Dish[] = [
@@ -269,6 +272,7 @@ export type Booking = {
   date: string;
   time: string;
   guests: number;
+  table_number?: number | null;
   status: string;
   notes?: string;
   created_at?: string;
@@ -284,4 +288,31 @@ export type Order = {
   status: string;
   created_at?: string;
   updated_at?: string;
+};
+
+export type StaffProfile = {
+  id: string;
+  employee_code?: string;
+  name: string;
+  role: string;
+  phone: string;
+  salary: number;
+  passcode?: string;
+  created_at?: string;
+};
+
+export type AttendanceRecord = {
+  id: string;
+  staff_id: string;
+  attendance_date: string;
+  status: string;
+  created_at?: string;
+};
+
+export type LeaveRequest = {
+  id: string;
+  staff_id: string;
+  status: string;
+  reason?: string | null;
+  created_at?: string;
 };

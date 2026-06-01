@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -9,15 +10,19 @@ import {
   CheckCircle2,
   Clock3,
   HeartHandshake,
+  Loader2,
   MapPin,
   MessageSquareText,
   Phone,
   Sparkles,
+  Table,
   User,
   UtensilsCrossed,
   Users,
 } from 'lucide-react';
+
 import Navbar from '@/components/Navbar';
+import { RESTAURANT_TABLES, supabase } from '@/lib/supabase';
 
 const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
   ssr: false,
@@ -49,6 +54,7 @@ const TIME_SLOTS = [
 ];
 
 const GUEST_OPTIONS = Array.from({ length: 20 }, (_, index) => index + 1);
+const TABLE_COUNT = 10;
 
 function getTodayInputValue(offsetDays = 0) {
   const date = new Date();
@@ -75,12 +81,10 @@ function formatReservationDate(dateValue: string) {
   });
 }
 
-function validateForm(form: FormState): FormErrors {
+function validateForm(form: FormState, selectedTable: string, availableTableNumbers: number[]) {
   const nextErrors: FormErrors = {};
 
-  if (!form.fullName.trim()) {
-    nextErrors.fullName = 'Please enter your full name.';
-  }
+  if (!form.fullName.trim()) nextErrors.fullName = 'Please enter your full name.';
 
   const phone = form.phone.trim();
   if (!phone) {
@@ -95,15 +99,21 @@ function validateForm(form: FormState): FormErrors {
     nextErrors.date = 'Reservation date cannot be in the past.';
   }
 
-  if (!form.timeSlot) {
-    nextErrors.timeSlot = 'Please select a time slot.';
-  }
+  if (!form.timeSlot) nextErrors.timeSlot = 'Please select a time slot.';
 
   const guestCount = Number(form.guests);
   if (!form.guests) {
     nextErrors.guests = 'Please select the number of guests.';
   } else if (Number.isNaN(guestCount) || guestCount < 1 || guestCount > 20) {
     nextErrors.guests = 'Guest count must be between 1 and 20.';
+  }
+
+  if (form.date && form.timeSlot && !selectedTable) {
+    nextErrors.form = 'Please select an available table before confirming your booking.';
+  }
+
+  if (form.date && form.timeSlot && selectedTable && !availableTableNumbers.includes(Number(selectedTable))) {
+    nextErrors.form = 'Please choose an available table for this slot.';
   }
 
   return nextErrors;
@@ -118,13 +128,69 @@ export default function ReservationPage() {
     guests: '2',
     specialRequests: '',
   });
+  const [selectedTable, setSelectedTable] = useState('');
+  const [availableTableNumbers, setAvailableTableNumbers] = useState<number[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<Record<string, unknown> | null>(null);
 
   const minDate = getTodayInputValue();
-  const validationPreview = validateForm(form);
+  const availableTableSet = useMemo(() => new Set(availableTableNumbers), [availableTableNumbers]);
+  const validationPreview = useMemo(() => validateForm(form, selectedTable, availableTableNumbers), [form, selectedTable, availableTableNumbers]);
   const canSubmit = Object.keys(validationPreview).length === 0 && !loading;
+
+  const loadAvailability = useCallback(async (dateValue: string, timeValue: string) => {
+    if (!dateValue || !timeValue) {
+      setAvailableTableNumbers([]);
+      setSelectedTable('');
+      return;
+    }
+
+    setAvailabilityLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from(RESTAURANT_TABLES.bookings)
+        .select('table_number, status, date, time')
+        .eq('date', dateValue)
+        .eq('time', timeValue);
+
+      if (error) throw error;
+
+      const bookedTables = new Set<number>();
+      for (const booking of data ?? []) {
+        const tableNumber = Number(booking.table_number);
+        const status = String(booking.status ?? '').toLowerCase();
+        if (tableNumber && ['reserved', 'confirmed', 'pending', 'seated'].includes(status)) {
+          bookedTables.add(tableNumber);
+        }
+      }
+
+      const nextAvailable = Array.from({ length: TABLE_COUNT }, (_, index) => index + 1).filter((tableNumber) => !bookedTables.has(tableNumber));
+      setAvailableTableNumbers(nextAvailable);
+
+      setSelectedTable((current) => {
+        if (current && nextAvailable.includes(Number(current))) return current;
+        return nextAvailable[0] ? String(nextAvailable[0]) : '';
+      });
+    } catch (error) {
+      console.error('Availability lookup failed:', error);
+      setAvailableTableNumbers([]);
+      setSelectedTable('');
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!form.date || !form.timeSlot) {
+      setAvailableTableNumbers([]);
+      setSelectedTable('');
+      return;
+    }
+
+    void loadAvailability(form.date, form.timeSlot);
+  }, [form.date, form.timeSlot, loadAvailability]);
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -145,6 +211,8 @@ export default function ReservationPage() {
       guests: '2',
       specialRequests: '',
     });
+    setSelectedTable('');
+    setAvailableTableNumbers([]);
     setErrors({});
     setSuccess(null);
   }
@@ -152,7 +220,7 @@ export default function ReservationPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    const nextErrors = validateForm(form);
+    const nextErrors = validateForm(form, selectedTable, availableTableNumbers);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -167,6 +235,8 @@ export default function ReservationPage() {
           date: form.date,
           time: form.timeSlot,
           guests: Number(form.guests),
+          table_number: Number(selectedTable),
+          status: 'confirmed',
           notes: form.specialRequests.trim(),
         }),
       });
@@ -176,9 +246,7 @@ export default function ReservationPage() {
 
       setSuccess(data);
     } catch (err: unknown) {
-      setErrors({
-        form: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-      });
+      setErrors({ form: err instanceof Error ? err.message : 'Something went wrong. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -196,9 +264,7 @@ export default function ReservationPage() {
             <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-5">
               <CheckCircle2 className="w-8 h-8 text-accent-green" />
             </div>
-            <p className="text-xs uppercase tracking-[0.35em] text-accent-green font-semibold mb-3">
-              Reservation Confirmed
-            </p>
+            <p className="text-xs uppercase tracking-[0.35em] text-accent-green font-semibold mb-3">Reservation Confirmed</p>
             <h1 className="font-display text-3xl sm:text-4xl font-bold text-primary-900 mb-4" style={{ fontFamily: 'Cinzel, serif' }}>
               Your table is ready for you
             </h1>
@@ -206,10 +272,11 @@ export default function ReservationPage() {
               We’ve reserved your table and saved your preferences. See you on{' '}
               <span className="text-gray-900 font-semibold">{String(success.date)}</span>
               {' '}at{' '}
-              <span className="text-gray-900 font-semibold">{String(success.time)}</span>.
+              <span className="text-gray-900 font-semibold">{String(success.time)}</span>
+              {' '}for Table {String(success.table_number ?? '')}.
             </p>
 
-              <div className="grid sm:grid-cols-3 gap-3 mb-8">
+            <div className="grid sm:grid-cols-4 gap-3 mb-8">
               <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 text-left shadow-warm">
                 <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Booking ID</p>
                 <p className="text-sm font-semibold text-gray-900">#{String(success.id ?? '').slice(0, 8).toUpperCase()}</p>
@@ -217,6 +284,10 @@ export default function ReservationPage() {
               <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 text-left shadow-warm">
                 <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Guests</p>
                 <p className="text-sm font-semibold text-gray-900">{String(success.guests)} guest{Number(success.guests) > 1 ? 's' : ''}</p>
+              </div>
+              <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 text-left shadow-warm">
+                <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Table</p>
+                <p className="text-sm font-semibold text-gray-900">Table {String(success.table_number)}</p>
               </div>
               <div className="rounded-2xl bg-white/35 backdrop-blur-md border border-white/40 p-4 text-left shadow-warm">
                 <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">Date</p>
@@ -256,9 +327,7 @@ export default function ReservationPage() {
               transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }}>
               <div className="inline-flex items-center gap-2 rounded-full glass border border-primary-600/15 px-4 py-2 mb-6 shadow-warm">
                 <Sparkles className="w-4 h-4 text-primary-600" />
-                <span className="text-xs uppercase tracking-[0.3em] text-primary-700 font-semibold">
-                  Elegant Table Reservation
-                </span>
+                <span className="text-xs uppercase tracking-[0.3em] text-primary-700 font-semibold">Elegant Table Reservation</span>
               </div>
 
               <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold leading-[0.95] text-primary-900 mb-6" style={{ fontFamily: 'Cinzel, serif' }}>
@@ -270,17 +339,17 @@ export default function ReservationPage() {
               </p>
 
               <div className="grid sm:grid-cols-3 gap-3 max-w-2xl">
-                  <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
+                <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
                   <Clock3 className="w-5 h-5 text-primary-600 mb-2" />
                   <p className="text-sm font-semibold text-gray-900">Quick confirmation</p>
                   <p className="text-xs text-gray-600 mt-1">Receive booking details instantly.</p>
                 </div>
-                  <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
+                <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
                   <HeartHandshake className="w-5 h-5 text-accent-green mb-2" />
                   <p className="text-sm font-semibold text-gray-900">Warm service</p>
                   <p className="text-xs text-gray-600 mt-1">Every reservation gets personal attention.</p>
                 </div>
-                  <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
+                <div className="glass border border-warm-200 rounded-2xl p-4 shadow-card lift-3d">
                   <MapPin className="w-5 h-5 text-accent-red mb-2" />
                   <p className="text-sm font-semibold text-gray-900">Jaipur location</p>
                   <p className="text-xs text-gray-600 mt-1">A refined space in the heart of the city.</p>
@@ -295,8 +364,7 @@ export default function ReservationPage() {
               <div
                 className="relative overflow-hidden min-h-[380px] rounded-[2rem] border border-warm-200 shadow-warm-lg bg-cover bg-center"
                 style={{
-                  backgroundImage:
-                    "url('https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1400&q=80')",
+                  backgroundImage: "url('https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1400&q=80')",
                 }}>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.1),transparent_40%)]" />
@@ -322,9 +390,7 @@ export default function ReservationPage() {
               className="glass border border-warm-200 rounded-[2rem] p-6 sm:p-8 shadow-warm-lg">
               <div className="flex items-start justify-between gap-4 mb-8">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.35em] text-primary-700 font-semibold mb-2">
-                    Reservation Details
-                  </p>
+                  <p className="text-xs uppercase tracking-[0.35em] text-primary-700 font-semibold mb-2">Reservation Details</p>
                   <h2 className="font-display text-2xl sm:text-3xl font-bold text-primary-900" style={{ fontFamily: 'Cinzel, serif' }}>
                     Tell us about your visit
                   </h2>
@@ -418,6 +484,47 @@ export default function ReservationPage() {
                   ))}
                 </select>
                 {errors.guests && <p className="text-xs text-accent-red">{errors.guests}</p>}
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-warm-200 bg-white/25 p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-primary-700 font-semibold">Select your table</p>
+                    <p className="text-sm text-stone-600">Only tables not already booked for this exact slot are shown as available.</p>
+                  </div>
+                  {availabilityLoading ? <Loader2 className="w-4 h-4 animate-spin text-primary-600" /> : null}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {Array.from({ length: TABLE_COUNT }, (_, index) => index + 1).map((tableNumber) => {
+                    const available = availableTableSet.has(tableNumber);
+                    const selected = Number(selectedTable) === tableNumber;
+                    return (
+                      <button
+                        key={tableNumber}
+                        type="button"
+                        onClick={() => available && setSelectedTable(String(tableNumber))}
+                        disabled={!available}
+                        className={`rounded-2xl border px-3 py-3 text-left transition-all duration-200 ${
+                          selected
+                            ? 'bg-primary-600/10 border-primary-600/25 text-primary-800 shadow-warm'
+                            : available
+                              ? 'bg-emerald-600/5 border-emerald-700/15 text-stone-800 hover:bg-emerald-600/10'
+                              : 'bg-stone-100/80 border-stone-200 text-stone-400 cursor-not-allowed'
+                        }`}>
+                        <p className="text-sm font-semibold">Table {tableNumber}</p>
+                        <p className="text-[10px] uppercase tracking-[0.22em] mt-1">
+                          {selected ? 'Selected' : available ? 'Available' : 'Booked'}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between text-xs text-stone-500">
+                  <span>{availableTableNumbers.length} tables available for this slot</span>
+                  <span>Selection updates live after choosing date and time</span>
+                </div>
               </div>
 
               <div className="mt-5 flex flex-col gap-1.5">

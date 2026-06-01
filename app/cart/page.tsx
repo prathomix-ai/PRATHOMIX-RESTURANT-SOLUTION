@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import SplitBill from '@/components/SplitBill';
 import { useCartStore } from '@/lib/store';
-import { addLocalOrder } from '@/lib/localOrders';
+import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Trash2, Plus, Minus, Receipt, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
@@ -17,36 +17,40 @@ export default function CartPage() {
   const [tableNumber, setTableNumber] = useState('');
   const [orderError, setOrderError] = useState('');
 
-  const grandTotal = total() * 1.05; // + 5% GST
+  const cartItems = items;
+  const currentTable = Number(tableNumber);
+  const totalPrice = total() * 1.05; // + 5% GST
 
   async function placeOrder() {
-    const parsedTableNumber = Number(tableNumber);
-    if (!tableNumber.trim() || Number.isNaN(parsedTableNumber) || parsedTableNumber < 1) {
+    if (!tableNumber.trim() || Number.isNaN(currentTable) || currentTable < 1) {
       setOrderError('Please enter a valid table number before placing the order.');
       return;
     }
 
-    if (items.length === 0) {
+    if (cartItems.length === 0) {
       setOrderError('Your cart is empty. Add items before placing an order.');
       return;
     }
 
     try {
-      const orderRes = await fetch('/api/orders', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dish_ids:     items.map((i) => i.id),
-          dish_names:   items.map((i) => i.name),
-          total_amount: grandTotal,
-          split_count:  1,
-          table_number: parsedTableNumber,
-        }),
-      });
+      const dishIds = cartItems.map((item) => item.id);
+      const dishNames = cartItems.map((item) => item.name);
+      const orderPayload = {
+        table_number: currentTable,
+        dish_ids: dishIds,
+        dish_names: dishNames,
+        total_amount: Number(totalPrice),
+        split_count: 1,
+        status: 'placed',
+      };
 
-      const orderPayload = await orderRes.json();
-      if (!orderRes.ok) {
-        throw new Error(orderPayload?.error || 'Order placement failed. Please try again.');
+      console.log('Submitting order payload to Supabase:', orderPayload);
+
+      const { error } = await supabase.from('orders').insert([orderPayload]);
+
+      if (error) {
+        console.error('Supabase order insert failed:', error);
+        throw error;
       }
 
       await fetch('/api/whatsapp', {
@@ -54,8 +58,8 @@ export default function CartPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type:   'order',
-          amount: grandTotal,
-          dishes: items.map((i) => i.name),
+          amount: totalPrice,
+          dishes: cartItems.map((i) => i.name),
         }),
       });
       setOrderError('');
@@ -63,32 +67,8 @@ export default function CartPage() {
       clearCart();
       setOrdered(true);
     } catch (e) {
-      addLocalOrder({
-        id: `local-${Date.now()}`,
-        table_number: parsedTableNumber,
-        dish_ids: items.map((i) => i.id),
-        dish_names: items.map((i) => i.name),
-        total_amount: grandTotal,
-        split_count: 1,
-        status: 'placed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-
-      await fetch('/api/whatsapp', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type:   'order',
-          amount: grandTotal,
-          dishes: items.map((i) => i.name),
-        }),
-      }).catch(() => undefined);
-
-      setOrderError('');
-      setOrderMode('local');
-      clearCart();
-      setOrdered(true);
+      console.error('Order submission failed:', e);
+      setOrderError('Order submission failed. Please check the console for details and try again.');
     }
   }
 
@@ -138,12 +118,12 @@ export default function CartPage() {
             Your Cart
           </h1>
           <span className="text-slate-500 text-sm">
-            ({items.length} item{items.length !== 1 ? 's' : ''})
+            ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})
           </span>
         </div>
 
         {/* Empty state */}
-        {items.length === 0 ? (
+        {cartItems.length === 0 ? (
           <div className="text-center py-32">
             <ShoppingCart className="w-16 h-16 text-slate-800 mx-auto mb-4" />
             <p className="text-slate-500 mb-6">Your cart is empty</p>
@@ -161,7 +141,7 @@ export default function CartPage() {
             {/* Items list */}
             <div className="lg:col-span-3 flex flex-col gap-3">
               <AnimatePresence>
-                {items.map((item) => (
+                {cartItems.map((item) => (
                   <motion.div
                     key={item.id}
                     layout
@@ -255,7 +235,7 @@ export default function CartPage() {
                   </div>
                   <div className="flex justify-between font-bold text-primary-900 border-t border-warm-200 pt-3 mt-3">
                     <span>Total</span>
-                    <span className="gradient-text">₹{grandTotal.toFixed(2)}</span>
+                    <span className="gradient-text">₹{totalPrice.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -289,7 +269,7 @@ export default function CartPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}>
                     <SplitBill
-                      total={grandTotal}
+                          total={totalPrice}
                       onConfirm={() => setTimeout(placeOrder, 800)}
                     />
                   </motion.div>
