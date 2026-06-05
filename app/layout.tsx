@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: '#D97706',
+  themeColor: '#C5A880',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,11 +18,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[#FAF9F6] text-stone-900 antialiased" suppressHydrationWarning={true}>
+      <body className="bg-[#0A0A0A] text-[#EAE6DF] antialiased" suppressHydrationWarning={true}>
         <div className="min-h-screen relative isolate">
           {children}
         </div>

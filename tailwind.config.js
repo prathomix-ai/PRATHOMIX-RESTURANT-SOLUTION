@@ -9,46 +9,52 @@ module.exports = {
       colors: {
         primary: {
           50:  '#FAF9F6',
-          100: '#F4EFE7',
-          200: '#E8DAC8',
-          300: '#D9B98C',
-          400: '#D97706',
-          500: '#B86A12',
-          600: '#8B5A2B',
-          700: '#6B3F2A',
-          800: '#4A2D21',
-          900: '#2C2C2C',
+          100: '#F5F1E8',
+          200: '#EAE6DF',
+          300: '#D5C3AE',
+          400: '#C5A880', // Premium Gold Accent
+          500: '#A88E67',
+          600: '#8C7355', // Rich Bronze
+          700: '#6E5940',
+          800: '#4F3F2D',
+          900: '#2F2519',
         },
         warm: {
           50:  '#FAF9F6',
           100: '#F5F1E8',
-          200: '#E8E0D4',
+          200: '#EAE6DF',
           300: '#D5C3AE',
-          400: '#B86A12',
+          400: '#C5A880',
         },
         accent: {
-          red:   '#7A3E2A',
-          green: '#2F5233',
-          gold:  '#D97706',
+          red:   '#5C2E20', // Moody Dark Red
+          green: '#1D3B24', // Moody Dark Green
+          gold:  '#C5A880',
+          bronze: '#8C7355',
+          charcoal: {
+            900: '#0A0A0A',
+            800: '#121212',
+            700: '#1A1A1A',
+          }
         },
       },
       fontFamily: {
-        display: ['Cinzel', 'serif'],
-        body: ['DM Sans', 'sans-serif'],
+        display: ['"Cormorant Garamond"', 'Cinzel', 'serif'],
+        body: ['Montserrat', 'sans-serif'],
       },
       boxShadow: {
-        'warm':    '0 4px 15px rgba(139, 90, 43, 0.12)',
-        'warm-md': '0 8px 24px rgba(44, 44, 44, 0.08)',
-        'warm-lg': '0 12px 32px rgba(139, 90, 43, 0.15)',
-        'card':    '0 2px 12px rgba(44, 44, 44, 0.06)',
+        'warm':    '0 4px 20px rgba(197, 168, 128, 0.06)',
+        'warm-md': '0 8px 30px rgba(10, 10, 10, 0.5)',
+        'warm-lg': '0 12px 40px rgba(197, 168, 128, 0.1)',
+        'card':    '0 2px 18px rgba(10, 10, 10, 0.3)',
       },
       animation: {
-        'pulse-elegant': 'pulseElegant 2s ease-in-out infinite',
+        'pulse-elegant': 'pulseElegant 3s ease-in-out infinite',
       },
       keyframes: {
         pulseElegant: {
-          '0%,100%': { boxShadow: '0 4px 15px rgba(139, 90, 43, 0.12)' },
-          '50%':     { boxShadow: '0 8px 24px rgba(217, 119, 6, 0.2)' },
+          '0%,100%': { boxShadow: '0 4px 20px rgba(197, 168, 128, 0.05)' },
+          '50%':     { boxShadow: '0 8px 30px rgba(197, 168, 128, 0.15)' },
         },
       },
     },

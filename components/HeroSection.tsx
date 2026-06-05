@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowRight, Zap } from 'lucide-react';
+import { ArrowRight, Star } from 'lucide-react';
 
 const MotionLink = motion.create(Link);
 
@@ -10,115 +10,126 @@ const containerVariants = {
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.12,
-      delayChildren: 0.04,
+      staggerChildren: 0.2,
+      delayChildren: 0.15,
     },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 28, scale: 0.96, rotateX: 8 },
+  hidden: { opacity: 0, y: 40, filter: 'blur(8px)' },
   show: {
     opacity: 1,
     y: 0,
-    scale: 1,
+    filter: 'blur(0px)',
     transition: {
-      duration: 0.72,
-      ease: [0.22, 1, 0.36, 1],
+      duration: 0.95,
+      ease: [0.25, 1, 0.5, 1], // Premium ease-out-quart
     },
   },
 };
 
-const stats = [
-  { value: '4.9★',  label: 'Rating'       },
-  { value: '< 2min', label: 'AI Response'  },
-  { value: '10+',   label: 'Macro Dishes'  },
-  { value: '100%',  label: 'Fresh Daily'   },
-];
-
 export default function HeroSection() {
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden px-4 py-20">
-      {/* Elegant ambient gradient blobs */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2
-                        w-[600px] h-[600px] rounded-full bg-primary-400/8 blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2
-                        w-[500px] h-[500px] rounded-full bg-accent-gold/6 blur-3xl" />
+    <section
+      className="relative h-screen min-h-[600px] w-full flex items-center justify-center overflow-hidden bg-[#0A0A0A]"
+      aria-label="Hero — Prathomix Fine Dining"
+    >
+      {/* ── Immersive Ken Burns background ── */}
+      <div
+        aria-hidden
+        className="kenburns-bg absolute inset-0 z-0"
+        style={{
+          backgroundImage:
+            'url(https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=2000&q=90)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          willChange: 'transform',
+        }}
+      />
+
+      {/* ── Rich dark overlay for moodiness and typography contrast ── */}
+      <div
+        aria-hidden
+        className="absolute inset-0 z-[1]"
+        style={{
+          background: `
+            linear-gradient(
+              to bottom,
+              rgba(10, 10, 10, 0.45) 0%,
+              rgba(10, 10, 10, 0.65) 50%,
+              rgba(10, 10, 10, 0.95) 100%
+            )
+          `,
+        }}
+      />
+
+      {/* ── Subtle radial gold glow to represent ultra-luxury tier ── */}
+      <div aria-hidden className="absolute inset-0 z-[2] pointer-events-none overflow-hidden">
+        <div className="hero-orb-1 absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full" />
       </div>
 
+      {/* ── Typography & CTA ── */}
       <motion.div
-        className="relative text-center max-w-4xl mx-auto"
+        className="relative z-[3] text-center max-w-5xl mx-auto px-6 flex flex-col items-center justify-center h-full"
         variants={containerVariants}
         initial="hidden"
-        animate="show">
-        {/* Badge */}
-        <motion.div variants={itemVariants}>
-          <div className="inline-flex items-center gap-2 glass border border-primary-400/20
-                          rounded-full px-4 py-1.5 mb-8 shadow-warm float-y">
-            <Zap className="w-3.5 h-3.5 text-primary-600" />
-            <span className="text-xs text-stone-700 font-medium uppercase tracking-wider">
-              Premium Fine Dining · Jaipur
-            </span>
+        animate="show"
+      >
+        {/* Luxury tier indicator */}
+        <motion.div variants={itemVariants} className="flex flex-col items-center gap-3 mb-6">
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Star key={i} className="w-3.5 h-3.5 text-[#C5A880] fill-[#C5A880]" />
+            ))}
           </div>
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.35em] text-[#C5A880]">
+            An Exclusive Culinary Sanctuary
+          </span>
         </motion.div>
 
-        {/* Headline */}
+        {/* Large Elegant Serif Title */}
         <motion.h1
           variants={itemVariants}
-          className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight mb-6"
-          style={{ fontFamily: 'Cinzel, serif' }}>
-          <span className="gradient-text">Elegant Dining.</span>
-          <br />
-          <span className="text-stone-900">Culinary Excellence.</span>
+          className="font-display text-5xl sm:text-7xl lg:text-[7.5rem] font-medium leading-[1.05] tracking-widest text-white mb-6 uppercase"
+          style={{ fontFamily: '"Cormorant Garamond", "Cinzel", serif' }}
+        >
+          Prathomix
         </motion.h1>
 
-        {/* Sub */}
+        {/* Subtitle */}
         <motion.p
           variants={itemVariants}
-          className="text-stone-600 text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-          Experience curated menus crafted with precision, order seamlessly, split bills with ease,
-          and let our AI sommelier guide your culinary journey — refined dining elevated.
+          className="text-stone-300 font-sans text-sm sm:text-base md:text-lg max-w-xl mx-auto mb-12 leading-relaxed tracking-wider uppercase"
+          style={{ fontFamily: 'Montserrat, sans-serif' }}
+        >
+          A symphony of gastronomy, bespoke artistry, and pure exclusivity in Jaipur.
         </motion.p>
 
-        {/* CTAs */}
-        <motion.div
-          variants={itemVariants}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        {/* Single Sleek Gold View Menu Button */}
+        <motion.div variants={itemVariants}>
           <MotionLink
             href="/menu"
-            whileHover={{ scale: 1.06, y: -6 }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="lift-3d shine-sweep float-y flex items-center gap-2 bg-primary-700 hover:bg-primary-800 text-white font-bold
-                       px-8 py-3.5 rounded-xl shadow-warm-lg text-sm uppercase tracking-wide w-full sm:w-auto justify-center">
-            Explore Menu <ArrowRight className="w-4 h-4" />
-          </MotionLink>
-          <MotionLink
-            href="/reservation"
-            whileHover={{ scale: 1.06, y: -6 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="lift-3d shine-sweep float-y-delayed flex items-center gap-2 glass border border-warm-200 hover:border-primary-400/30
-                       text-stone-700 hover:text-primary-700 font-medium px-8 py-3.5 rounded-xl
-                       shadow-warm text-sm w-full sm:w-auto justify-center">
-            Reserve a Table
+            transition={{ duration: 0.35, ease: [0.25, 1, 0.5, 1] }}
+            className="group flex items-center justify-center gap-3.5 bg-transparent border border-[#C5A880] text-[#C5A880] hover:text-[#0A0A0A] hover:bg-[#C5A880] font-bold px-10 py-5 rounded-full text-xs uppercase tracking-[0.25em] transition-all duration-500 shadow-lg"
+          >
+            Explore the Menu 
+            <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
           </MotionLink>
         </motion.div>
+      </motion.div>
 
-        {/* Stats */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="flex flex-wrap justify-center gap-8 sm:gap-12 mt-20">
-          {stats.map((s) => (
-            <motion.div key={s.label} variants={itemVariants} className="text-center">
-              <p className="text-xl sm:text-2xl font-bold text-primary-600">{s.value}</p>
-              <p className="text-xs text-stone-600 mt-0.5">{s.label}</p>
-            </motion.div>
-          ))}
-        </motion.div>
+      {/* ── Scroll cue bounce ── */}
+      <motion.div
+        className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[3]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.6 }}
+        transition={{ delay: 1.8, duration: 1 }}
+        aria-hidden
+      >
+        <div className="scroll-cue-arrow" />
       </motion.div>
     </section>
   );

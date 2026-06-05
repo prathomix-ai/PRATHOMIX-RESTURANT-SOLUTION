@@ -9,22 +9,25 @@ import type { Dish } from '@/lib/supabase';
 interface Props {
   dish: Dish;
   compact?: boolean;
+  /** Stagger index: 0-based. Cards delay by index × 0.18 s for row-cascade reveal. */
+  index?: number;
 }
 
-function DishCard({ dish, compact = false }: Props) {
+function DishCard({ dish, compact = false, index = 0 }: Props) {
   const addItem = useCartStore((s) => s.addItem);
   const cardRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
-  const imgHeight = compact ? 108 : 180;
-  const imageDepth = compact ? 26 : 34;
+  const imgHeight = compact ? 108 : 220;
+  const imageDepth = compact ? 26 : 38;
 
   const shadow = useMemo(() => {
     const lift = hovered ? 1 : 0.72;
     const x = (-tilt.x * 0.7).toFixed(1);
     const y = (18 + Math.abs(tilt.y) * 0.75).toFixed(1);
-    return `${x}px ${y}px 40px rgba(44, 44, 44, ${0.12 * lift}), 0 24px 44px rgba(139, 90, 43, ${0.12 * lift}), 0 1px 0 rgba(255, 255, 255, 0.78) inset`;
+    // Luxury dark styling shadow
+    return `${x}px ${y}px 40px rgba(0, 0, 0, ${0.75 * lift}), 0 24px 44px rgba(197, 168, 128, ${0.06 * lift}), 0 1px 0 rgba(255, 255, 255, 0.04) inset`;
   }, [hovered, tilt.x, tilt.y]);
 
   function handleMove(event: PointerEvent<HTMLDivElement>) {
@@ -35,8 +38,8 @@ function DishCard({ dish, compact = false }: Props) {
     const y = ((event.clientY - rect.top) / rect.height) * 2 - 1;
 
     setTilt({
-      x: Math.max(-1, Math.min(1, x)) * 10,
-      y: Math.max(-1, Math.min(1, y)) * -9,
+      x: Math.max(-1, Math.min(1, x)) * 8, // Refined tilt angle for high-end feel
+      y: Math.max(-1, Math.min(1, y)) * -7,
     });
   }
 
@@ -48,46 +51,51 @@ function DishCard({ dish, compact = false }: Props) {
   return (
     <motion.div
       ref={cardRef}
-      initial={{ opacity: 0, y: 26, scale: 0.96 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 40, scale: 0.96, filter: 'blur(6px)' }}
+      whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
       whileHover={{ y: -8, scale: 1.01 }}
-      viewport={{ once: true, amount: 0.28 }}
-      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      viewport={{ once: true, amount: 0.1 }}
+      transition={{
+        duration: 0.85,
+        delay: index * 0.18,
+        ease: [0.25, 1, 0.5, 1], // ease-out-quart
+      }}
       onPointerEnter={() => setHovered(true)}
       onPointerMove={handleMove}
       onPointerLeave={handleLeave}
-      className={`relative isolate transform-gpu paint-boost ${compact ? 'w-48 flex-shrink-0' : 'w-full'}`}>
+      className={`dish-card-reveal relative isolate transform-gpu paint-boost ${compact ? 'w-48 flex-shrink-0' : 'w-full'}`}>
 
+      {/* Golden halo background glow */}
       <div
-        className="absolute inset-0 pointer-events-none rounded-2xl opacity-0 transition-opacity duration-300"
+        className="absolute inset-0 pointer-events-none rounded-3xl opacity-0 transition-opacity duration-500"
         style={{
           opacity: hovered ? 1 : 0,
-          background: 'radial-gradient(circle at 50% 12%, rgba(255,255,255,0.42), transparent 38%)',
-          transform: `translateX(${tilt.x * 0.2}%)`,
+          background: 'radial-gradient(circle at 50% 12%, rgba(197, 168, 128, 0.12), transparent 45%)',
+          transform: `translateX(${tilt.x * 0.15}%)`,
         }}
       />
 
       <div
-        className="absolute -inset-6 pointer-events-none rounded-[2rem] opacity-0 transition-opacity duration-300"
+        className="absolute -inset-6 pointer-events-none rounded-[2rem] opacity-0 transition-opacity duration-500"
         style={{
           opacity: hovered ? 1 : 0,
-          background: 'radial-gradient(circle at 50% 50%, rgba(217,119,6,0.12), transparent 64%)',
-          filter: 'blur(18px)',
+          background: 'radial-gradient(circle at 50% 50%, rgba(197, 168, 128, 0.05), transparent 60%)',
+          filter: 'blur(24px)',
         }}
       />
 
       <div
-        className={`glass rounded-[1.65rem] overflow-hidden border border-warm-200 hover:border-primary-400/30
-                  transition-all duration-300 flex flex-col relative z-10
+        className={`glass-dark rounded-[2rem] overflow-hidden border border-[#C5A880]/10 hover:border-[#C5A880]/25
+                  transition-all duration-500 flex flex-col relative z-10
                   ${compact ? 'w-48 flex-shrink-0' : 'w-full'}`}
         style={{
-          transform: `perspective(1400px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg) translateY(${hovered ? -4 : 0}px) scale(${hovered ? 1.02 : 1})`,
+          transform: `perspective(1400px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg) translateY(${hovered ? -3 : 0}px) scale(${hovered ? 1.015 : 1})`,
           boxShadow: shadow,
         }}>
         <div
           className="absolute inset-0 rounded-[inherit] pointer-events-none"
           style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.24), rgba(255,255,255,0.06) 36%, rgba(255,255,255,0.18) 100%)',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005) 36%, rgba(255,255,255,0.02) 100%)',
             opacity: hovered ? 1 : 0.55,
           }}
         />
@@ -95,18 +103,18 @@ function DishCard({ dish, compact = false }: Props) {
         {/* Image */}
         <div className="relative overflow-hidden flex-shrink-0" style={{ height: imgHeight }}>
           <div
-            className="absolute left-1/2 bottom-2 h-5 w-3/4 -translate-x-1/2 rounded-full bg-black/25 blur-2xl pointer-events-none"
+            className="absolute left-1/2 bottom-2 h-5 w-3/4 -translate-x-1/2 rounded-full bg-black/50 blur-2xl pointer-events-none"
             style={{
-              opacity: hovered ? 0.34 : 0.22,
-              transform: `translateX(${tilt.x * 0.7}px) translateY(${hovered ? 8 : 11}px) scale(${hovered ? 1.08 : 1})`,
+              opacity: hovered ? 0.45 : 0.3,
+              transform: `translateX(${tilt.x * 0.7}px) translateY(${hovered ? 6 : 9}px) scale(${hovered ? 1.05 : 1})`,
             }}
           />
           <div
             className="absolute inset-0"
             style={{
-              transform: `translateZ(${imageDepth}px) translateY(${hovered ? '-5px' : '0px'}) scale(${hovered ? 1.05 : 1.01})`,
-              transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1)',
-              boxShadow: hovered ? '0 28px 48px rgba(44, 44, 44, 0.24)' : '0 18px 32px rgba(44, 44, 44, 0.16)',
+              transform: `translateZ(${imageDepth}px) translateY(${hovered ? '-3px' : '0px'}) scale(${hovered ? 1.03 : 1.005})`,
+              transition: 'transform 300ms cubic-bezier(0.25, 1, 0.5, 1), box-shadow 300ms cubic-bezier(0.25, 1, 0.5, 1)',
+              boxShadow: hovered ? '0 28px 48px rgba(0, 0, 0, 0.6)' : '0 18px 32px rgba(0, 0, 0, 0.4)',
             }}>
             <Image
               src={dish.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400'}
@@ -116,26 +124,26 @@ function DishCard({ dish, compact = false }: Props) {
               sizes={compact ? '208px' : '(max-width: 768px) 100vw, 33vw'}
             />
           </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/42 via-stone-950/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
           <div
             className="absolute inset-0 pointer-events-none mix-blend-screen"
             style={{
-              background: 'linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.60) 45%, transparent 60%)',
-              transform: `translateX(${hovered ? tilt.x * 8 : -120}%) rotate(8deg)`,
-              opacity: hovered ? 0.82 : 0,
-              transition: hovered ? 'transform 150ms linear, opacity 180ms ease-out' : 'opacity 180ms ease-out',
+              background: 'linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.18) 45%, transparent 60%)',
+              transform: `translateX(${hovered ? tilt.x * 5 : -120}%) rotate(8deg)`,
+              opacity: hovered ? 0.6 : 0,
+              transition: hovered ? 'transform 200ms linear, opacity 200ms ease-out' : 'opacity 200ms ease-out',
             }}
           />
 
           {/* Badges */}
-          <div className="absolute top-2 right-2 flex flex-col gap-1 items-end" style={{ transform: `translateZ(${imageDepth + 10}px)` }}>
+          <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end" style={{ transform: `translateZ(${imageDepth + 8}px)` }}>
             {dish.protein >= 30 && (
-              <span className="text-[9px] bg-accent-gold/95 text-white font-bold px-1.5 py-0.5 rounded-full leading-tight shadow-warm float-y-slow">
+              <span className="text-[8px] bg-[#C5A880] text-[#0A0A0A] font-bold px-2 py-0.5 rounded-full leading-tight tracking-wider uppercase shadow-md">
                 High Protein
               </span>
             )}
             {dish.calories < 300 && (
-              <span className="text-[9px] bg-accent-green/95 text-white font-bold px-1.5 py-0.5 rounded-full leading-tight shadow-warm float-y-slow">
+              <span className="text-[8px] bg-[#8C7355]/90 text-[#EAE6DF] font-bold px-2 py-0.5 rounded-full leading-tight tracking-wider uppercase shadow-md">
                 Low Cal
               </span>
             )}
@@ -143,42 +151,43 @@ function DishCard({ dish, compact = false }: Props) {
         </div>
 
         {/* Content */}
-        <div className="p-4 flex flex-col gap-2 flex-1" style={{ transform: 'translateZ(16px)' }}>
+        <div className="p-6 flex flex-col gap-3 flex-1" style={{ transform: 'translateZ(12px)' }}>
           <h3
-            className={`font-display font-semibold text-primary-900 leading-snug line-clamp-2 ${compact ? 'text-[11px]' : 'text-sm'}`}
-            style={{ fontFamily: 'Cinzel, serif' }}>
+            className={`font-display text-white group-hover:text-[#C5A880] transition-colors duration-300 leading-snug line-clamp-2 ${compact ? 'text-xs' : 'text-lg font-medium'}`}
+            style={{ fontFamily: '"Cormorant Garamond", "Cinzel", serif' }}>
             {dish.name}
           </h3>
 
           {!compact && (
-            <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed">{dish.description}</p>
+            <p className="text-xs text-[#EAE6DF]/60 line-clamp-3 leading-relaxed" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+              {dish.description}
+            </p>
           )}
 
           {/* Macro row */}
-          <div className={`flex items-center gap-3 text-xs text-stone-600 ${compact ? 'gap-2 text-[10px]' : ''}`}>
-            <span className="flex items-center gap-1">
-              <Flame className="w-3 h-3 text-primary-600" />
+          <div className={`flex items-center gap-4 text-xs text-[#EAE6DF]/45 mt-2 ${compact ? 'gap-2 text-[10px]' : ''}`}>
+            <span className="flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-[#C5A880]" />
               {dish.calories} cal
             </span>
-            <span className="flex items-center gap-1">
-              <Zap className="w-3 h-3 text-accent-gold" />
+            <span className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-[#8C7355]" />
               {dish.protein}g protein
             </span>
           </div>
 
           {/* Price + CTA */}
-          <div className="flex items-center justify-between mt-auto pt-2">
-            <span className={`text-primary-700 font-bold ${compact ? 'text-xs' : 'text-sm'}`}>₹{dish.price}</span>
+          <div className="flex items-center justify-between mt-auto pt-4 border-t border-[#C5A880]/10">
+            <span className={`text-[#C5A880] font-bold ${compact ? 'text-xs' : 'text-base'}`}>₹{dish.price}</span>
             <button
               onClick={() => addItem(dish)}
-              className={`flex items-center gap-1 bg-white/60 backdrop-blur-md hover:bg-white/75
-                         border border-white/45 hover:border-primary-400/50 text-primary-700
-                         font-semibold rounded-lg shadow-[0_10px_22px_rgba(44,44,44,0.08)]
-                         transition-all duration-300 active:scale-95 lift-3d shine-sweep`}
-              style={{ transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)' }}
+              className={`flex items-center gap-1.5 bg-transparent border border-[#C5A880]/30 hover:border-[#C5A880]
+                         hover:bg-[#C5A880] text-[#C5A880] hover:text-[#0A0A0A]
+                         font-semibold rounded-full shadow-md
+                         transition-all duration-300 active:scale-95 lift-3d`}
             >
-              <ShoppingCart className="w-3 h-3" />
-              <span className={compact ? 'text-[10px] px-2 py-1' : 'text-xs px-2.5 py-1.5'}>
+              <ShoppingCart className="w-3.5 h-3.5" />
+              <span className={compact ? 'text-[9px] px-2 py-1.5' : 'text-[11px] uppercase tracking-wider px-3.5 py-2'}>
                 {compact ? 'Add' : 'Add to Cart'}
               </span>
             </button>
