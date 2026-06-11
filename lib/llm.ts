@@ -40,7 +40,7 @@ export async function generateRestaurantText(
 
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const res = await groq.chat.completions.create({
-        model: 'llama3-8b-8192',
+        model: 'llama-3.1-8b-instant',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: maxOutputTokens,
         temperature,

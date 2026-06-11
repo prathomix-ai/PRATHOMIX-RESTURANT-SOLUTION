@@ -14,6 +14,7 @@ export default function Navbar() {
   const links = [
     { href: '/',        label: 'Home'    },
     { href: '/menu',    label: 'Menu'    },
+    { href: '/delivery', label: 'Delivery' },
     { href: '/reservation', label: 'Reserve' },
     { href: '/cart',    label: 'Order'   },
   ];
@@ -38,7 +39,7 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Nav */}
-            <div className="hidden md:flex items-center gap-10">
+            <div className="hidden md:flex items-center gap-8 lg:gap-10">
               {links.map((l) => (
                 <Link key={l.href} href={l.href}
                   className="text-xs font-semibold uppercase tracking-wider text-[#EAE6DF]/75 hover:text-[#C5A880] transition-colors duration-300 relative group py-2">
@@ -93,7 +94,7 @@ export default function Navbar() {
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
               className="md:hidden overflow-hidden border-t border-[#C5A880]/15 glass-dark rounded-b-2xl">
-              <div className="px-6 py-6 flex flex-col gap-2">
+              <div className="px-6 py-6 flex flex-col gap-2.5">
                 {links.map((l) => (
                   <Link key={l.href} href={l.href}
                     onClick={() => setMenuOpen(false)}
@@ -102,6 +103,7 @@ export default function Navbar() {
                     {l.label}
                   </Link>
                 ))}
+
                 <button
                   onClick={() => { setLocOpen(true); setMenuOpen(false); }}
                   className="flex items-center gap-2 text-[#EAE6DF] hover:text-[#C5A880] py-3 px-3
