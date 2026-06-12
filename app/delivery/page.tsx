@@ -865,7 +865,7 @@ export default function DeliveryPage() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-full max-w-lg glass border border-warm-200 rounded-[2rem] p-6 md:p-8 shadow-warm-lg space-y-6 overflow-hidden"
+              className="relative w-full max-w-md mx-4 p-4 md:p-8 glass border border-warm-200 rounded-[2rem] shadow-warm-lg space-y-6 overflow-hidden"
             >
               {/* Top Accent line */}
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#C5A880] to-[#EAE6DF]" />
@@ -888,7 +888,7 @@ export default function DeliveryPage() {
               <div className="space-y-4">
                 {/* Text Area for Complete Address */}
                 <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-[0.25em] text-gray-500 font-semibold flex items-center gap-1.5">
+                  <label className="text-xs uppercase tracking-[0.25em] text-[#F3F4F6] font-semibold flex items-center gap-1.5">
                     Complete Address (House/Flat No., Landmark) <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -899,17 +899,17 @@ export default function DeliveryPage() {
                     }}
                     rows={3}
                     placeholder="e.g. Flat 402, Royal Palms, opposite Cyber Park"
-                    className="w-full bg-white/45 backdrop-blur-md border border-white/40 focus:border-primary-600/50 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-500 outline-none transition-all focus:shadow-warm resize-none"
+                    className="w-full bg-white/10 backdrop-blur-md border border-white/20 focus:border-primary-400/50 rounded-xl px-4 py-3 text-sm text-[#FFFFFF] placeholder-gray-400 outline-none transition-all focus:shadow-warm resize-none"
                   />
                 </div>
 
                 {/* Input Field for Phone Number */}
                 <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-[0.25em] text-gray-500 font-semibold flex items-center gap-1.5">
+                  <label className="text-xs uppercase tracking-[0.25em] text-[#F3F4F6] font-semibold flex items-center gap-1.5">
                     Phone Number <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary-700 font-semibold">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#F3F4F6] font-semibold">
                       +91
                     </span>
                     <input
@@ -920,21 +920,21 @@ export default function DeliveryPage() {
                         setOrderError('');
                       }}
                       placeholder="9876543210"
-                      className="w-full bg-white/45 backdrop-blur-md border border-white/40 focus:border-primary-600/50 rounded-xl pl-14 pr-4 py-3 text-sm text-gray-900 placeholder-gray-500 outline-none transition-all focus:shadow-warm"
+                      className="w-full bg-white/10 backdrop-blur-md border border-white/20 focus:border-primary-400/50 rounded-xl pl-14 pr-4 py-3 text-sm text-[#FFFFFF] placeholder-gray-400 outline-none transition-all focus:shadow-warm"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Order total summary inside modal */}
-              <div className="p-4 bg-white/25 rounded-2xl border border-warm-200 text-xs space-y-2.5 shadow-warm">
-                <div className="flex justify-between text-stone-600 font-medium">
+              <div className="p-4 bg-white/10 rounded-2xl border border-white/20 text-xs space-y-2.5 shadow-warm">
+                <div className="flex justify-between text-[#F3F4F6] font-medium">
                   <span>Items Count:</span>
-                  <span className="text-primary-900 font-semibold">{items.reduce((acc, curr) => acc + curr.qty, 0)} items</span>
+                  <span className="text-[#FFFFFF] font-semibold">{items.reduce((acc, curr) => acc + curr.qty, 0)} items</span>
                 </div>
-                <div className="flex justify-between text-stone-600 font-medium">
+                <div className="flex justify-between text-[#F3F4F6] font-medium">
                   <span>Grand Total (incl. taxes & delivery):</span>
-                  <span className="text-[#C5A880] font-bold text-sm">₹{grandTotal.toFixed(0)}</span>
+                  <span className="text-[#FFFFFF] font-bold text-sm">₹{grandTotal.toFixed(0)}</span>
                 </div>
               </div>
 
@@ -949,7 +949,7 @@ export default function DeliveryPage() {
               <button
                 onClick={handleCheckout}
                 disabled={ordering || !checkoutAddress.trim() || phone.length < 10}
-                className="w-full py-4 rounded-xl bg-[#C5A880] hover:bg-[#D5C3AE] disabled:bg-stone-900/60 disabled:text-stone-605 disabled:border disabled:border-stone-850 text-[#0A0A0A] font-extrabold text-xs uppercase tracking-wider transition-all duration-300 shadow-warm-lg disabled:shadow-none flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-xl bg-[#C5A880] hover:bg-[#D5C3AE] disabled:bg-stone-900/60 disabled:text-stone-605 disabled:border disabled:border-stone-850 text-[#FFFFFF] font-extrabold text-xs uppercase tracking-wider transition-all duration-300 shadow-warm-lg disabled:shadow-none flex items-center justify-center gap-2"
               >
                 {ordering ? (
                   <>
