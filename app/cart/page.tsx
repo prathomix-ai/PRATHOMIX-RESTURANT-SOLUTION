@@ -25,6 +25,10 @@ import {
   CreditCard,
   Banknote,
   Smartphone,
+  ShieldCheck,
+  ShieldAlert,
+  BellRing,
+  AlertTriangle,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import SplitBill from '@/components/SplitBill';
@@ -58,6 +62,44 @@ function CartContent() {
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState('');
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
+  const [liveVerificationStatus, setLiveVerificationStatus] = useState<string>('PENDING_TABLE_VERIFICATION');
+
+  // Live polling for table verification when waiting for server approval
+  useEffect(() => {
+    if (!confirmedOrder || !confirmedOrder.id) return;
+    const isPending =
+      confirmedOrder.status === 'pending_verification' ||
+      confirmedOrder.verification_status === 'PENDING_TABLE_VERIFICATION' ||
+      confirmedOrder.verification_status === 'HOLD';
+
+    if (!isPending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders?table=${tableNumber}`);
+        if (!res.ok) return;
+        const list = await res.json();
+        const current = list.find(
+          (o: any) => o.id === confirmedOrder.id || o.order_number === confirmedOrder.order_number
+        );
+        if (current) {
+          if (
+            current.status === 'placed' ||
+            current.status === 'preparing' ||
+            current.verification_status === 'CONFIRMED'
+          ) {
+            setConfirmedOrder(current);
+            setLiveVerificationStatus('CONFIRMED');
+          } else if (current.status === 'cancelled' || current.verification_status === 'REJECTED') {
+            setConfirmedOrder(current);
+            setLiveVerificationStatus('REJECTED');
+          }
+        }
+      } catch {}
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [confirmedOrder, tableNumber]);
 
   // Auto-fill from authenticated user profile if logged in
   useEffect(() => {
@@ -149,6 +191,13 @@ function CartContent() {
         qty: i.qty,
       }));
 
+      const storedSessionToken =
+        typeof window !== 'undefined'
+          ? sessionStorage.getItem('prathomix_session_token') ||
+            localStorage.getItem('prathomix_session_token')
+          : null;
+      const idempotencyKey = `idemp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
       const payload = {
         order_type: orderType,
         table_number: orderType === 'dine_in' ? Number(tableNumber) : null,
@@ -168,6 +217,8 @@ function CartContent() {
         payment_status: paymentMethod === 'cash' ? 'pending' : 'paid',
         notes: orderNotes.trim(),
         split_count: 1,
+        session_token: storedSessionToken,
+        idempotency_key: idempotencyKey,
       };
 
       const res = await fetch('/api/orders', {
@@ -195,6 +246,7 @@ function CartContent() {
       }).catch(() => null);
 
       setConfirmedOrder(data);
+      setLiveVerificationStatus(data.verification_status || 'CONFIRMED');
       clearCart();
     } catch (err: any) {
       console.error('Order placement error:', err);
@@ -206,6 +258,13 @@ function CartContent() {
 
   // ── Success State ──────────────────────────────────────────────────────────
   if (confirmedOrder) {
+    const isAwaitingVerification =
+      liveVerificationStatus === 'PENDING_TABLE_VERIFICATION' ||
+      liveVerificationStatus === 'HOLD' ||
+      confirmedOrder.status === 'pending_verification';
+
+    const isRejected = liveVerificationStatus === 'REJECTED' || confirmedOrder.status === 'cancelled';
+
     return (
       <>
         <Navbar />
@@ -216,18 +275,56 @@ function CartContent() {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="glass-dark rounded-3xl p-8 sm:p-12 text-center max-w-lg border border-[#C5A880]/20 shadow-2xl relative z-10">
-            <div className="w-20 h-20 rounded-full bg-[#C5A880]/10 border border-[#C5A880]/30 flex items-center justify-center mx-auto mb-6 shadow-warm">
-              <CheckCircle2 className="w-10 h-10 text-[#C5A880]" />
-            </div>
-
-            <p className="text-[10px] uppercase tracking-[0.3em] text-[#C5A880] font-bold mb-2">
-              Order Confirmed
-            </p>
-            <h2
-              className="font-display text-3xl font-bold text-[#EAE6DF] mb-3"
-              style={{ fontFamily: 'Cinzel, serif' }}>
-              Sent to Kitchen
-            </h2>
+            {isRejected ? (
+              <>
+                <div className="w-20 h-20 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-6 shadow-warm">
+                  <AlertTriangle className="w-10 h-10 text-rose-400" />
+                </div>
+                <p className="text-[10px] uppercase tracking-[0.3em] text-rose-400 font-bold mb-2">
+                  Order Not Confirmed
+                </p>
+                <h2 className="font-display text-2xl font-bold text-[#EAE6DF] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
+                  Please Speak to Your Server
+                </h2>
+                <p className="text-xs text-[#EAE6DF]/70 mb-6">
+                  This dine-in order could not be verified for Table {tableNumber}. A server will assist you shortly.
+                </p>
+              </>
+            ) : isAwaitingVerification ? (
+              <>
+                <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-6 shadow-warm">
+                  <BellRing className="w-10 h-10 text-amber-400 animate-pulse" />
+                </div>
+                <p className="text-[10px] uppercase tracking-[0.3em] text-amber-400 font-bold mb-2">
+                  Awaiting Table Confirmation
+                </p>
+                <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#EAE6DF] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
+                  Order Received
+                </h2>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium mb-5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
+                  Server confirming Table {tableNumber}
+                </div>
+                <p className="text-xs text-[#EAE6DF]/70 mb-6 leading-relaxed">
+                  To protect your dining experience, our team confirms guests at their table before food preparation begins. Your order will be sent to the kitchen immediately upon confirmation.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 rounded-full bg-[#C5A880]/10 border border-[#C5A880]/30 flex items-center justify-center mx-auto mb-6 shadow-warm">
+                  <CheckCircle2 className="w-10 h-10 text-[#C5A880]" />
+                </div>
+                <p className="text-[10px] uppercase tracking-[0.3em] text-[#C5A880] font-bold mb-2">
+                  Table Confirmed
+                </p>
+                <h2 className="font-display text-3xl font-bold text-[#EAE6DF] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
+                  Sent to Kitchen
+                </h2>
+                <p className="text-xs text-[#EAE6DF]/70 mb-6">
+                  Our culinary team is preparing your gourmet order. Real-time status updates are live on the kitchen display.
+                </p>
+              </>
+            )}
 
             <div className="p-4 rounded-2xl bg-[#121212]/90 border border-[#C5A880]/15 mb-6 text-left space-y-2">
               <div className="flex justify-between text-xs text-[#EAE6DF]/70">
@@ -251,10 +348,6 @@ function CartContent() {
                 <span className="text-[#C5A880] font-bold text-sm">₹{grandTotal.toFixed(2)}</span>
               </div>
             </div>
-
-            <p className="text-xs text-[#EAE6DF]/70 mb-6">
-              Our culinary team is preparing your gourmet order. Real-time status updates are live on the kitchen display.
-            </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link

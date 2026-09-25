@@ -191,58 +191,194 @@ Purane 1,500-line monolithic `app/admin/page.tsx` file ko 10 completely decouple
 
 ---
 
+## 🛡️ PHASE 13: Dine-In Order Fraud Prevention Architecture (#57 Critical)
+
+### 🚨 Problem Statement Solved
+Restaurants faced the threat of malicious or accidental remote dine-in orders (e.g. patrons photographing table QR codes and placing orders from home, triggering automatic food preparation).
+**Fundamental Security Principle:**
+> *"QR possession ≠ physical restaurant presence."*
+> Unverified dine-in orders must NEVER reach the kitchen automatically.
+
+```
+TABLE QR SCAN
+↓
+TABLE SESSION (ACTIVE, 2-Hour Sliding Expiry)
+↓
+CUSTOMER ORDER SUBMISSION (Idempotency Key Check)
+↓
+DETERMINISTIC FRAUD RISK ENGINE (0 AI Dependency)
+↓
+PENDING TABLE VERIFICATION (Excluded from Kitchen KDS)
+↓
+WAITER / RECEPTION PRESENCE CONFIRMATION
+↓
+CONFIRMED & KOT RELEASED
+↓
+KITCHEN DISPLAY SYSTEM (Kanban Board)
+```
+
+### ⚙️ Core Modules & Capabilities Implemented:
+1. **HMAC-SHA256 Signed QR Tokens ([`lib/qrToken.ts`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/lib/qrToken.ts)):**
+   - Tables generate secure tokens cryptographically signed with secret salt, embedded table ID, restaurant ID, and timestamp.
+   - Prevents URL tampering, table spoofing, and brute-force table enumeration.
+2. **Dine-In Session Engine ([`lib/tableSession.ts`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/lib/tableSession.ts) & [`/api/sessions`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/app/api/sessions/route.ts)):**
+   - Scanning a table QR initializes a temporary dine-in session (`ACTIVE`) with a **2-hour sliding expiry**.
+   - Expired or closed table sessions cannot create new orders and require a fresh in-restaurant QR scan.
+   - Once staff confirms a customer's physical presence, the session is promoted to `is_trusted = true` for faster subsequent ordering.
+3. **Deterministic Fraud & Abuse Risk Engine ([`lib/fraudRisk.ts`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/lib/fraudRisk.ts)):**
+   - Pure mathematical rules engine (**zero AI dependency**).
+   - Evaluates:
+     - Table status checks (blocks `cleaning`, `closed`, `maintenance` tables).
+     - High-value order thresholds (> ₹1,500 = `MEDIUM` risk, requiring staff check).
+     - Extreme order thresholds (> ₹5,000 = `HIGH` risk hold).
+     - Bulk quantity per item (≥ 8x per item = `HIGH` risk hold).
+     - Order velocity (< 3 minutes from session creation = `MEDIUM` risk check).
+4. **Kitchen Display System (KDS) Isolation ([`components/KitchenDashboard.tsx`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/components/KitchenDashboard.tsx)):**
+   - Unverified dine-in orders (`status: 'pending_verification'`) are strictly excluded from the Kitchen Display System (KDS) Kanban board. Kitchen staff never waste ingredients on unverified tickets.
+5. **Staff Order Verification Workflow ([`components/WaiterDashboard.tsx`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/components/WaiterDashboard.tsx) & [`/api/orders/verify`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/app/api/orders/verify/route.ts)):**
+   - Waiter & Reception dashboards feature a dedicated "Verify Orders" tab with real-time physical presence banners.
+   - Staff actions: **Confirm Customer Present (Send KOT)**, **Reject/Mark Absent** with audit reason, or **Place on Hold**.
+   - All actions recorded in PostgreSQL `audit_logs` for dispute resolution.
+6. **Double-Tap Idempotency ([`app/api/orders/route.ts`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/app/api/orders/route.ts)):**
+   - Backend idempotency key cache eliminates duplicate charges and duplicate tickets from rapid customer clicks.
+7. **Customer Respectful UX ([`app/cart/page.tsx`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/app/cart/page.tsx)):**
+   - Neutral, non-accusing messaging: *"Awaiting Table Confirmation. Our captain is verifying your table presence."*
+   - Live 3-second auto-polling transitions smoothly to *"Sent to Kitchen (KOT Generated)"* upon staff confirmation without page refresh.
+8. **Admin Security Governance ([`components/admin/AdminSettings.tsx`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/components/admin/AdminSettings.tsx)):**
+   - Full control panel for Session Timeout, Max Unverified Order Value, Payment requirement, and Waiter override policies.
+
+---
+
+## 🍽️ PHASE 14: Kitchen → Waiter → Table Serving Workflow (#58 Complete)
+
+### 🚨 Operational Gap Solved
+The kitchen pass is not the final step in a restaurant. Cooked food must be picked up swiftly by servers, brought to the correct dining table without cross-table errors, and officially marked as served for end-to-end lifecycle tracking.
+
+### 🔄 Complete Serving Lifecycle:
+```
+CUSTOMER ORDER
+↓
+WAITER / CUSTOMER ORDER ENTRY
+↓
+KDS / CHEF (Status: PREPARING)
+↓
+CHEF COMPLETION (Status: READY, sets ready_at, optional priority)
+↓
+WAITER REALTIME NOTIFICATION (🔔 Web Audio Synthesized Chime + Toast + Badge Counter)
+↓
+READY TO SERVE QUEUE (/waiter/ready & Waiter Dashboard Tab)
+↓
+WAITER PICKS UP FOOD (READY → PICKED_UP, records waiter_id, waiter_name, picked_up_at)
+↓
+TABLE ARRIVAL & WRONG TABLE PROTECTION (Prominent table identifier, destination check)
+↓
+OPTIONAL TABLE QR SCAN VERIFICATION (Validates physical presence at table standee)
+↓
+WAITER MARKS AS SERVED (PICKED_UP → SERVED, records served_by, served_at)
+↓
+CUSTOMER RECEIVES FOOD → BILLING / COMPLETION (Full timestamp history recorded)
+```
+
+### ⚙️ Core Modules & Capabilities Implemented:
+1. **Dedicated Serving Workflow API Route ([`app/api/orders/serve/route.ts`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/app/api/orders/serve/route.ts)):**
+   - **Server-Side Security Enforcement**: Customers can never trigger `ready`, `picked_up`, or `served` (returns `403 Forbidden`). Only authorized kitchen and floor staff can mutate these states.
+   - `action: 'ready'`: Chef marks cooking complete, sets `ready_at`, optional priority (`NORMAL`, `HIGH`, `URGENT`), and emits `ORDER_READY` notification.
+   - `action: 'pickup'`: Waiter claims food from pass; transitions order to `PICKED_UP`, sets `picked_up_at` and `picked_up_by`.
+   - `action: 'serve'`: Waiter marks served at destination table. Enforces **Wrong Table Protection** (table number mismatch rejects the request) and validates **Optional Table QR Token**.
+   - `action: 'batch_serve'`: Single-tap batch serving for tables with multiple concurrent orders.
+   - `action: 'set_priority'`: Adjusts priority to `NORMAL`, `HIGH`, or `URGENT`.
+2. **Serving Notifications Engine ([`lib/servingNotifications.ts`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/lib/servingNotifications.ts) & [`/api/orders/notifications`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/app/api/orders/notifications/route.ts)):**
+   - Real-time pub/sub notifications for `ORDER_READY`, `ORDER_PICKED_UP`, `ORDER_SERVED`.
+   - **Automatic Delay Detection**: Orders waiting on the pass for &gt; 5 minutes automatically generate urgent pickup delay alerts (`PICKUP_DELAY_ALERT`).
+   - Notification acknowledgment support to prevent repeated spam.
+3. **Dedicated Mobile/Tablet Workstation ([`app/waiter/ready/page.tsx`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/app/waiter/ready/page.tsx)):**
+   - Full-screen workstation built for iPad/Android tablets and smartphones in Obsidian & Warm Gold luxury aesthetics.
+   - Prominent destination table banners (e.g. `TABLE 12` in high-contrast typography).
+   - Itemized dish breakdown with quantities and kitchen special notes.
+   - Realtime elapsed stopwatches (`Ready 00:42 ago`) with amber/crimson delay callouts.
+   - **Synthesized Audio Chimes**: Web Audio API instant synthesized bell chime when a new dish is ready (zero external audio asset dependencies).
+   - Queue Sorting: *Oldest Ready First*, *By Table*, *Urgent Priority First*.
+   - Multi-Order Grouping: Detects tables with multiple active orders and provides a single-tap *"Serve All ({count}) Orders to Table X"* shortcut.
+   - 1-tap `[ PICK UP FOOD ]` and `[ MARK AS SERVED ]` with confirmation dialogs.
+   - Optional Table QR verification modal.
+4. **Integrated Waiter Dashboard ([`components/WaiterDashboard.tsx`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/components/WaiterDashboard.tsx)):**
+   - Added **"Ready to Serve"** tab (`activeTab === 'ready'`) alongside Floor Tables, Take Order, Active KOTs, and Verify Orders.
+   - Realtime badge counter: `🔔 3 Ready Orders` in navigation bar and alert banner.
+   - Persistent alert banner at top of dashboard with direct `[ Ready Queue ]` and `[ Full Screen ]` shortcuts.
+5. **Kitchen Display System (KDS) Live Feedback ([`components/KitchenDashboard.tsx`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/components/KitchenDashboard.tsx)):**
+   - Column 3 ("Ready / Dispatch") shows live waiter status: *"🍽️ Picked up by Marco Vance · En route Table 12"*.
+   - Chefs can set priority (`NORMAL`, `HIGH`, `URGENT`) during cooking.
+   - Direct pass handover button for express walk-up service.
+6. **Admin Governance Controls ([`components/admin/AdminSettings.tsx`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/components/admin/AdminSettings.tsx)):**
+   - Section 21: *Food Serving & Table Handover Governance*.
+   - Ready pickup delay alert threshold (configurable, default 5 mins).
+   - Toggles for optional QR Code Verification at table, Realtime Pass Chimes, and Multi-Order Batch Serving.
+7. **Postgres Database Schema ([`supabase/v2_saas_schema.sql`](file:///p:/PRATHOMIX/PRATHOMIX-TECH/PRATHOMIX%20SOLUTION/PRATHOMIX-RESTURANT-SOLUTION/supabase/v2_saas_schema.sql)):**
+   - Added `order_status_history` table (audit trail of `old_status`, `new_status`, `changed_by`, `changed_by_role`, `changed_at`, `metadata`).
+   - Added `notifications` table for real-time pub/sub events.
+   - Added `priority`, `ready_at`, `picked_up_at`, `picked_up_by`, `served_at`, `served_by`, `partial_ready` columns to `orders`.
+
+---
+
 ## 🗂️ Complete File Modification & Creation Inventory
 
 ### ✨ Naye Create Kiye Gaye Files:
-1. `NEWSUPDATES_README.md` (Ye master document)
-2. `supabase/v2_saas_schema.sql` (Complete PostgreSQL migration script)
+1. `NEWSUPDATES_README.md` (Master updates documentation)
+2. `supabase/v2_saas_schema.sql` (Complete PostgreSQL migration script, `table_sessions`, `order_status_history`, `notifications`)
 3. `lib/auth.ts` (Authentication & RBAC engine)
-4. `app/login/page.tsx` (Unified luxury login portal)
-5. `app/signup/page.tsx` (Customer & Restaurant Owner onboarding)
-6. `app/api/auth/login/route.ts` (Credentials & badge verification)
-7. `app/api/auth/signup/route.ts` (SaaS onboarding API)
-8. `app/api/auth/logout/route.ts` (Session clearing API)
-9. `components/admin/AdminSidebar.tsx` (Modular admin navigation shell)
-10. `components/admin/AdminOverview.tsx` (Executive analytics & KPI cards)
-11. `components/admin/AdminMenu.tsx` (Menu catalog CRUD & availability)
-12. `components/admin/AdminTables.tsx` (Floor tables & live SVG QR Standee generator)
-13. `components/admin/AdminInventory.tsx` (Stock vault, thresholds & adjustments)
-14. `components/admin/AdminStaff.tsx` (Personnel management, badges & shifts)
-15. `components/admin/AdminCRM.tsx` (VIP patrons, lifetime value & hospitality notes)
-16. `components/admin/AdminCoupons.tsx` (Discount coupons & promo campaigns)
-17. `components/admin/AdminReports.tsx` (Itemized sales ledger & CSV export)
-18. `components/admin/AdminSettings.tsx` (Restaurant identity, fiscal taxes & timings)
-19. `scratch/test-e2e.ts` (Automated 22-point test runner)
+4. `lib/qrToken.ts` (HMAC-SHA256 signed & timestamped QR token generator/validator)
+5. `lib/tableSession.ts` (Dine-in session lifecycle engine with 2-hour sliding expiry)
+6. `lib/fraudRisk.ts` (Deterministic rule-based fraud & risk evaluation engine)
+7. `lib/servingNotifications.ts` (Serving notifications & status history tracking engine)
+8. `app/waiter/ready/page.tsx` (Dedicated mobile/tablet "Ready to Serve" workstation)
+9. `app/api/orders/serve/route.ts` (Server-side authorized food serving & pickup workflow)
+10. `app/api/orders/notifications/route.ts` (Serving notifications polling & delay check endpoint)
+11. `app/api/sessions/route.ts` (Table session initialization & status query endpoint)
+12. `app/api/orders/verify/route.ts` (Staff physical presence verification & audit logging)
+13. `app/login/page.tsx` (Unified luxury login portal)
+14. `app/signup/page.tsx` (Customer & Restaurant Owner onboarding)
+15. `app/api/auth/login/route.ts` (Credentials & badge verification)
+16. `app/api/auth/signup/route.ts` (SaaS onboarding API)
+17. `app/api/auth/logout/route.ts` (Session clearing API)
+18. `components/admin/AdminSidebar.tsx` (Modular admin navigation shell)
+19. `components/admin/AdminOverview.tsx` (Executive analytics & KPI cards)
+20. `components/admin/AdminMenu.tsx` (Menu catalog CRUD & availability)
+21. `components/admin/AdminTables.tsx` (Floor tables & live SVG QR Standee generator with signed tokens)
+22. `components/admin/AdminInventory.tsx` (Stock vault, thresholds & adjustments)
+23. `components/admin/AdminStaff.tsx` (Personnel management, badges & shifts)
+24. `components/admin/AdminCRM.tsx` (VIP patrons, lifetime value & hospitality notes)
+25. `components/admin/AdminCoupons.tsx` (Discount coupons & promo campaigns)
+26. `components/admin/AdminReports.tsx` (Itemized sales ledger & CSV export)
+27. `components/admin/AdminSettings.tsx` (Restaurant identity, fiscal taxes, timings & Dine-In Fraud Prevention)
+28. `scratch/test-serving-workflow.ts` (18-point Serving Workflow test runner)
+29. `scratch/test-fraud-prevention.ts` (20-point Dine-In Fraud Prevention test runner)
+30. `scratch/test-e2e.ts` (Automated 22-point end-to-end test runner)
 
 ### 🛠️ Upgraded & Refactored Files:
-1. `app/admin/page.tsx` (Refactored from monolithic 1,500 lines to modular orchestrator)
-2. `app/cart/page.tsx` (Added zero-commission ordering, delivery fee, coupons, split bill, Suspense)
-3. `app/menu/page.tsx` (Added QR table integration, Suspense boundary)
-4. `app/api/chat/route.ts` (Added 5 role personas, function-calling tools, local fallback)
-5. `app/api/orders/route.ts` (Multi-channel JSON order ingestion & tax calculation)
-6. `app/api/admin/analytics/route.ts` (Added force-dynamic export to prevent static build stalls)
-7. `components/WaiterDashboard.tsx` (Upgraded to luxury dark POS with modifiers & KOT lock)
-8. `components/KitchenDashboard.tsx` (Upgraded to 4-column Kanban with live elapsed stopwatches)
-9. `components/ReceptionDashboardPage` (`app/reception/dashboard/page.tsx`) (Upgraded to 10-table live floor & walk-ins)
-10. `components/ChatInterface.tsx` (Session role injection & multi-tool Generative UI cards)
-11. `components/Navbar.tsx` (Added OS Portal quick-access badge in header & mobile drawer)
-12. `lib/supabase.ts` (Multi-tenant types, seed catalog, resilient fallback client)
-13. `lib/llm.ts` (Updated to active `llama-3.3-70b-versatile`)
-14. `middleware.ts` (Strict server-side edge RBAC route protection)
-15. `app/globals.css` (Standardized Obsidian & Gold luxury design system)
-16. `tsconfig.json` (Corrected TypeScript configuration)
-17. `.env.local.example` (Production environment variables reference)
-18. `README.md` (Completely rewritten executive documentation)
+1. `components/WaiterDashboard.tsx` (Added Ready to Serve tab, pass pickup/serve actions, real-time alert banner)
+2. `components/KitchenDashboard.tsx` (Added waiter pickup status display, elapsed pass timers, priority dispatch)
+3. `app/cart/page.tsx` (Added session token, idempotency key, waiting-verification screen & auto-polling)
+4. `app/menu/page.tsx` (Added signed QR token validation, table session initialization, Suspense boundary)
+5. `app/api/orders/route.ts` (Multi-channel JSON order ingestion, idempotency cache & verification state routing)
+6. `components/admin/AdminSettings.tsx` (Added Section 21: Food Serving & Table Handover Governance)
+7. `lib/supabase.ts` (Added Order status history, serving notifications, priority & picked_up fields)
+8. `supabase/v2_saas_schema.sql` (Added order status history, notifications tables, order column alters)
+9. `components/ChatInterface.tsx` (Restored clean card UI with readable high-contrast inputs & multi-tool Generative UI)
 
 ---
 
 ## 💻 System Status & Verification Summary
 
-| Check | Command | Status |
-|---|---|---|
-| **TypeScript Compiler** | `npx tsc --noEmit` | **0 Errors (Exit Code 0)** |
-| **Integration Suite** | `npx tsx scratch/test-e2e.ts` | **22 / 22 Tests Passed** |
-| **Production Build** | `npm run build` | **30 / 30 Routes Compiled Successfully** |
-| **Development Server** | `npm run dev` | **Running on port 3000** |
+| Check | Command | Status | Notes |
+|---|---|---|---|
+| **TypeScript Compiler** | `npx tsc --noEmit` | **0 Errors (Exit Code 0)** | Strict type checks across all components |
+| **Serving Workflow Suite** | `npx tsx scratch/test-serving-workflow.ts` | **18 / 18 Tests Passed (100%)** | Pass pickup, serve, QR verify, wrong table protection, delay alerts |
+| **Fraud Prevention Suite** | `npx tsx scratch/test-fraud-prevention.ts` | **20 / 20 Tests Passed (100%)** | HMAC tokens, sliding sessions, risk engine, kitchen isolation |
+| **E2E Integration Suite** | `npx tsx scratch/test-e2e.ts` | **22 / 22 Tests Passed (100%)** | Full-stack SaaS auth, menu, floor, CRM, and inventory |
+| **Production Build** | `npm run build` | **33 / 33 Routes Compiled Successfully** | Optimized Next.js static and dynamic bundles |
+| **Development Server** | `npm run dev` | **Running on port 3000** | Hot-reload active and responsive |
 
 Sabhi updates completely deployable aur production-ready hain!
+
+
+

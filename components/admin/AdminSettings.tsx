@@ -263,7 +263,187 @@ export default function AdminSettings() {
                 className="w-4 h-4 rounded text-[#C5A880] bg-[#1A1A1A] border-[#C5A880]/30"
               />
               <span className="text-xs text-[#EAE6DF]">
-                <strong>Realtime Audio Alerts:</strong> Chime chime on incoming KOT tickets in Kitchen and Waiter terminals.
+                <strong>Realtime Audio Alerts:</strong> Chime on incoming KOT tickets in Kitchen and Waiter terminals.
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* ── Section 18: Dine-In Verification & Fraud Prevention Architecture ── */}
+        <div className="p-6 rounded-2xl bg-[#121212]/90 border border-[#C5A880]/20 space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#C5A880]/15">
+            <div className="w-8 h-8 rounded-lg bg-[#C5A880]/10 border border-[#C5A880]/20 flex items-center justify-center text-[#C5A880]">
+              <ShieldAlert className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
+                Dine-In Order Fraud Prevention & Verification Policies
+              </h2>
+              <span className="text-[11px] text-[#EAE6DF]/50">
+                Rule-based remote order protection: QR Possession ≠ Physical Restaurant Presence
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+            <div>
+              <label className="block text-[#EAE6DF]/70 mb-1 font-semibold">Max Unverified Order Amount (₹)</label>
+              <input
+                type="number"
+                value={1500}
+                readOnly
+                className="w-full px-3 py-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 text-[#EAE6DF] focus:outline-none"
+              />
+              <span className="text-[10px] text-[#EAE6DF]/40 mt-0.5 block">Orders above this require server check</span>
+            </div>
+            <div>
+              <label className="block text-[#EAE6DF]/70 mb-1 font-semibold">Table Session Timeout (Mins)</label>
+              <input
+                type="number"
+                value={120}
+                readOnly
+                className="w-full px-3 py-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 text-[#EAE6DF] focus:outline-none"
+              />
+              <span className="text-[10px] text-[#EAE6DF]/40 mt-0.5 block">QR sessions expire after 2 hours inactivity</span>
+            </div>
+            <div>
+              <label className="block text-[#EAE6DF]/70 mb-1 font-semibold">Max Active Orders Per Table</label>
+              <input
+                type="number"
+                value={3}
+                readOnly
+                className="w-full px-3 py-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 text-[#EAE6DF] focus:outline-none"
+              />
+              <span className="text-[10px] text-[#EAE6DF]/40 mt-0.5 block">Prevents unverified order spam</span>
+            </div>
+          </div>
+
+          <div className="pt-2 space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="w-4 h-4 rounded text-[#C5A880] bg-[#1A1A1A] border-[#C5A880]/30"
+              />
+              <span className="text-xs text-[#EAE6DF]">
+                <strong>Require Server Confirmation for First Order:</strong> Protects against remote QR photo abuse by verifying physical presence before dispatching initial ticket to kitchen.
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="w-4 h-4 rounded text-[#C5A880] bg-[#1A1A1A] border-[#C5A880]/30"
+              />
+              <span className="text-xs text-[#EAE6DF]">
+                <strong>Require Staff Confirmation for High-Value Orders:</strong> Suspicious or large orders (&gt; ₹1,500) trigger automatic verification hold.
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="w-4 h-4 rounded text-[#C5A880] bg-[#1A1A1A] border-[#C5A880]/30"
+              />
+              <span className="text-xs text-[#EAE6DF]">
+                <strong>Enable Rule-Based Risk Engine:</strong> Realtime evaluation of velocity spikes, table state, and order size without external AI dependency.
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="w-4 h-4 rounded text-[#C5A880] bg-[#1A1A1A] border-[#C5A880]/30"
+              />
+              <span className="text-xs text-[#EAE6DF]">
+                <strong>Allow Waiter &amp; Reception Override:</strong> Authorized staff can verify or reject table presence directly from handheld POS and Concierge terminals.
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Section 21: Kitchen → Waiter → Table Serving Workflow Configuration */}
+        <div className="p-6 rounded-2xl bg-[#121212]/90 border border-[#C5A880]/20 space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#C5A880]/15">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
+                Food Serving &amp; Table Handover Governance
+              </h2>
+              <span className="text-[11px] text-[#EAE6DF]/50">
+                Post-kitchen lifecycle: Ready → Waiter Pickup → Table Verification → Served
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+            <div>
+              <label className="block text-[#EAE6DF]/70 mb-1 font-semibold">Ready Pickup Delay Alert (Mins)</label>
+              <input
+                type="number"
+                defaultValue={5}
+                className="w-full px-3 py-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 text-[#EAE6DF] focus:outline-none focus:border-[#C5A880]"
+              />
+              <span className="text-[10px] text-[#EAE6DF]/40 mt-0.5 block">Alerts staff if food sits on pass &gt; 5 mins</span>
+            </div>
+            <div>
+              <label className="block text-[#EAE6DF]/70 mb-1 font-semibold">Wrong Table Protection</label>
+              <input
+                type="text"
+                readOnly
+                value="Enforced (Server-Side)"
+                className="w-full px-3 py-2 rounded-xl bg-[#1A1A1A] border border-emerald-500/30 text-emerald-400 font-semibold focus:outline-none"
+              />
+              <span className="text-[10px] text-[#EAE6DF]/40 mt-0.5 block">Rejects serving mismatched table IDs</span>
+            </div>
+            <div>
+              <label className="block text-[#EAE6DF]/70 mb-1 font-semibold">Lifecycle Time Tracking</label>
+              <input
+                type="text"
+                readOnly
+                value="Active (Audit History)"
+                className="w-full px-3 py-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 text-[#C5A880] font-semibold focus:outline-none"
+              />
+              <span className="text-[10px] text-[#EAE6DF]/40 mt-0.5 block">Logs ready_at, picked_up_at, served_at</span>
+            </div>
+          </div>
+
+          <div className="pt-2 space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="w-4 h-4 rounded text-[#C5A880] bg-[#1A1A1A] border-[#C5A880]/30"
+              />
+              <span className="text-xs text-[#EAE6DF]">
+                <strong>Realtime Pass Chimes:</strong> Play synthesized audio chime on waiter tablets when chef marks order ready.
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="w-4 h-4 rounded text-[#C5A880] bg-[#1A1A1A] border-[#C5A880]/30"
+              />
+              <span className="text-xs text-[#EAE6DF]">
+                <strong>Optional QR Code Verification at Table:</strong> Waiters can scan table standee before marking served to verify physical destination.
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked={true}
+                className="w-4 h-4 rounded text-[#C5A880] bg-[#1A1A1A] border-[#C5A880]/30"
+              />
+              <span className="text-xs text-[#EAE6DF]">
+                <strong>Multi-Order Batch Serving:</strong> Group orders by table so waiters can pick up and serve multiple tickets to the same table in 1 tap.
               </span>
             </label>
           </div>

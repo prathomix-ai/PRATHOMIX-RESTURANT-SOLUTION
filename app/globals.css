@@ -284,16 +284,16 @@ body::after {
   animation: shineSweep 1.5s var(--ease-out-expo) forwards;
 }
 
-/* Chat bubble styling for luxury dark */
+/* Chat bubble styling (Light Luxury Warm) */
 .chat-user {
-  background: rgba(197, 168, 128, 0.08);
-  border: 1px solid rgba(197, 168, 128, 0.20);
-  color: #EAE6DF;
+  background: linear-gradient(135deg, #8C7355 0%, #6E5940 100%);
+  color: #FFFFFF;
 }
 .chat-ai {
-  background: rgba(18, 18, 18, 0.95);
-  border: 1px solid rgba(197, 168, 128, 0.10);
-  color: #EAE6DF;
+  background: #FFFFFF;
+  border: 1px solid #EAE6DF;
+  color: #1F2937;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .mic-active { animation: elegantPulse 1.2s ease-in-out infinite; }

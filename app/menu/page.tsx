@@ -22,6 +22,8 @@ function MenuContent() {
   const searchParams = useSearchParams();
   const tableParam = searchParams.get('table');
 
+  const qrTokenParam = searchParams.get('token');
+
   const [dishes,   setDishes]   = useState<Dish[]>([]);
   const [category, setCategory] = useState('All');
   const [search,   setSearch]   = useState('');
@@ -32,8 +34,27 @@ function MenuContent() {
   useEffect(() => {
     if (tableParam) {
       sessionStorage.setItem('prathomix_table', tableParam);
+
+      // Establish secure dining session
+      const existingToken = sessionStorage.getItem('prathomix_session_token');
+      fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table_number: Number(tableParam),
+          qr_token: qrTokenParam || undefined,
+          session_token: existingToken || undefined,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.session?.session_token) {
+            sessionStorage.setItem('prathomix_session_token', data.session.session_token);
+          }
+        })
+        .catch(() => {});
     }
-  }, [tableParam]);
+  }, [tableParam, qrTokenParam]);
 
   const gridVariants = {
     hidden: { opacity: 0 },

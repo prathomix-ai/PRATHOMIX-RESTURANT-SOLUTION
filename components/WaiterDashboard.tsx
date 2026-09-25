@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Utensils,
@@ -24,6 +25,11 @@ import {
   Printer,
   X,
   AlertCircle,
+  ShieldCheck,
+  ShieldAlert,
+  AlertTriangle,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 import { supabase, RESTAURANT_TABLES, DEFAULT_RESTAURANT_ID, type Dish, type Order } from '@/lib/supabase';
 import { clearClientSession } from '@/lib/auth';
@@ -47,9 +53,14 @@ interface OrderItemDraft {
 }
 
 export default function WaiterDashboard() {
-  const [activeTab, setActiveTab] = useState<'tables' | 'pos' | 'kots'>('tables');
+  const [activeTab, setActiveTab] = useState<'tables' | 'pos' | 'kots' | 'verify' | 'ready'>('tables');
   const [waiterName, setWaiterName] = useState('Marco Vance');
   const [waiterId, setWaiterId] = useState('W-1001');
+
+  // Verification state
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [rejectVerifyModal, setRejectVerifyModal] = useState<Order | null>(null);
+  const [verifyRejectReason, setVerifyRejectReason] = useState('Customer absent from table / remote QR abuse');
 
   // Data states
   const [tables, setTables] = useState<any[]>([]);
@@ -117,11 +128,11 @@ export default function WaiterDashboard() {
         setDishes(dishData);
       }
 
-      // 3. Fetch running orders
+      // 3. Fetch running orders (including pending table verifications)
       const { data: orderData } = await supabase
         .from(RESTAURANT_TABLES.orders)
         .select('*')
-        .in('status', ['placed', 'preparing', 'ready', 'served'])
+        .in('status', ['pending_verification', 'placed', 'preparing', 'ready', 'served'])
         .order('created_at', { ascending: false });
 
       if (orderData) {
@@ -278,6 +289,108 @@ export default function WaiterDashboard() {
     }
   }
 
+  // Separate pending verifications from active KOTs
+  const pendingVerifications = useMemo(() => {
+    return orders.filter(
+      (o) =>
+        o.status === 'pending_verification' ||
+        o.verification_status === 'PENDING_TABLE_VERIFICATION' ||
+        o.verification_status === 'HOLD'
+    );
+  }, [orders]);
+
+  const activeKOTOrders = useMemo(() => {
+    return orders.filter(
+      (o) =>
+        o.status !== 'pending_verification' &&
+        o.verification_status !== 'PENDING_TABLE_VERIFICATION' &&
+        o.verification_status !== 'HOLD'
+    );
+  }, [orders]);
+
+  const readyOrders = useMemo(() => {
+    return orders.filter((o) => o.status === 'ready' || o.status === 'picked_up');
+  }, [orders]);
+
+  // Handle pickup from pass
+  async function handlePickupFood(order: Order) {
+    try {
+      const res = await fetch('/api/orders/serve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'pickup',
+          order_id: order.id,
+          waiter_id: waiterId,
+          waiter_name: waiterName,
+          user_role: 'waiter',
+        }),
+      });
+      if (res.ok) {
+        setFeedbackMsg(`✓ Picked up ${order.order_number || `#${order.id.slice(0, 6)}`} for Table ${order.table_number}`);
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // Handle mark served
+  async function handleServeFood(order: Order) {
+    try {
+      const res = await fetch('/api/orders/serve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'serve',
+          order_id: order.id,
+          table_number: order.table_number,
+          waiter_id: waiterId,
+          waiter_name: waiterName,
+          user_role: 'waiter',
+        }),
+      });
+      if (res.ok) {
+        setFeedbackMsg(`🎉 Order served to Table ${order.table_number}!`);
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // Handle staff physical presence verification
+  async function handleVerifyOrder(orderId: string, action: 'confirm' | 'reject' | 'hold', reason = '') {
+    setVerifyingId(orderId);
+    try {
+      const res = await fetch('/api/orders/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          action,
+          reason: reason || verifyRejectReason,
+          staff_name: waiterName,
+          staff_role: 'waiter',
+          staff_id: waiterId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to verify table order');
+      }
+
+      setFeedbackMsg(data.message || (action === 'confirm' ? 'Order confirmed and sent to kitchen!' : 'Order rejected.'));
+      setRejectVerifyModal(null);
+      await fetchData();
+    } catch (err: any) {
+      alert(err?.message || 'Error processing verification');
+    } finally {
+      setVerifyingId(null);
+    }
+  }
+
   // Update order status (e.g. mark served)
   async function handleUpdateOrderStatus(orderId: string, status: string) {
     try {
@@ -349,12 +462,87 @@ export default function WaiterDashboard() {
 
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 pt-4">
+        {/* Urgent Table Verification Alert Banner */}
+        {pendingVerifications.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 flex-shrink-0 animate-pulse">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+                  Physical Table Verification Required ({pendingVerifications.length})
+                </p>
+                <p className="text-xs text-[#EAE6DF]/70">
+                  Remote or QR dine-in order(s) awaiting physical guest confirmation before sending to kitchen.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('verify')}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-[#0A0A0A] font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto flex-shrink-0 shadow-md">
+              Verify Guests Now <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+
+        {/* Ready to Serve Notification Banner */}
+        {readyOrders.filter((o) => o.status === 'ready').length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 flex-shrink-0 animate-pulse">
+                <BellRing className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
+                  Food Ready to Serve ({readyOrders.filter((o) => o.status === 'ready').length} Orders at Pass)
+                </p>
+                <p className="text-xs text-[#EAE6DF]/70">
+                  Kitchen has completed cooking. Pick up food from pass and deliver to tables.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('ready')}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-[#0A0A0A] font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all flex items-center justify-center gap-1.5 shadow-md">
+                Ready Queue <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+              <Link
+                href="/waiter/ready"
+                className="px-3.5 py-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/30 hover:border-[#C5A880] text-[#C5A880] text-xs font-bold transition-all flex items-center gap-1">
+                Full Screen
+              </Link>
+            </div>
+          </motion.div>
+        )}
+
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-[#121212] border border-[#C5A880]/15 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-1.5 rounded-2xl bg-[#121212] border border-[#C5A880]/15 mb-6">
           {[
             { id: 'tables', label: 'Floor Tables', icon: Layers, badge: tableSummary.occupied },
+            {
+              id: 'ready',
+              label: 'Ready to Serve',
+              icon: Clock3,
+              badge: readyOrders.filter((o) => o.status === 'ready').length || null,
+              alert: readyOrders.filter((o) => o.status === 'ready').length > 0,
+            },
+            {
+              id: 'verify',
+              label: 'Verify Orders',
+              icon: ShieldCheck,
+              badge: pendingVerifications.length || null,
+              alert: pendingVerifications.length > 0,
+            },
             { id: 'pos', label: 'Take Order', icon: Utensils, badge: currentTicket.length || null },
-            { id: 'kots', label: 'Active KOTs', icon: BellRing, badge: orders.length || null },
+            { id: 'kots', label: 'Active KOTs', icon: BellRing, badge: activeKOTOrders.length || null },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -362,6 +550,8 @@ export default function WaiterDashboard() {
               className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] shadow-md'
+                  : tab.alert
+                  ? 'text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20'
                   : 'text-[#EAE6DF]/70 hover:text-[#EAE6DF] hover:bg-[#1A1A1A]'
               }`}>
               <tab.icon className="w-4 h-4" />
@@ -369,7 +559,11 @@ export default function WaiterDashboard() {
               {tab.badge != null && tab.badge > 0 && (
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                    activeTab === tab.id ? 'bg-[#0A0A0A] text-[#C5A880]' : 'bg-[#C5A880]/20 text-[#C5A880]'
+                    activeTab === tab.id
+                      ? 'bg-[#0A0A0A] text-[#C5A880]'
+                      : tab.alert
+                      ? 'bg-amber-400 text-[#0A0A0A]'
+                      : 'bg-[#C5A880]/20 text-[#C5A880]'
                   }`}>
                   {tab.badge}
                 </span>
@@ -719,7 +913,339 @@ export default function WaiterDashboard() {
             )}
           </div>
         )}
+
+        {/* Tab 4: Physical Table Verifications (Dine-In Fraud Prevention) */}
+        {activeTab === 'verify' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl glass-dark border border-[#C5A880]/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#C5A880]/15 border border-[#C5A880]/30 flex items-center justify-center text-[#C5A880]">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
+                    Physical Table Verifications
+                  </h3>
+                  <p className="text-xs text-[#EAE6DF]/60">
+                    Verify that guests are physically seated at their table before orders are released to the kitchen.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-mono text-[#C5A880] self-start sm:self-auto bg-[#1A1A1A] px-3 py-1.5 rounded-xl border border-[#C5A880]/20">
+                Pending: {pendingVerifications.length}
+              </span>
+            </div>
+
+            {feedbackMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs text-center font-medium">
+                {feedbackMsg}
+              </div>
+            )}
+
+            {pendingVerifications.length === 0 ? (
+              <div className="py-24 text-center glass-dark rounded-3xl border border-[#C5A880]/15">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                </div>
+                <h4 className="font-bold text-base text-[#EAE6DF] mb-1" style={{ fontFamily: 'Cinzel, serif' }}>
+                  All Table Orders Verified
+                </h4>
+                <p className="text-xs text-[#EAE6DF]/60 max-w-sm mx-auto">
+                  No remote or unverified QR orders pending. Kitchen is only preparing physically confirmed table tickets.
+                </p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {pendingVerifications.map((ord) => {
+                  const isBusy = verifyingId === ord.id;
+                  const isHighRisk = ord.risk_level === 'HIGH' || ord.verification_status === 'HOLD';
+                  const isMediumRisk = ord.risk_level === 'MEDIUM';
+
+                  return (
+                    <div
+                      key={ord.id}
+                      className={`glass-dark rounded-2xl p-5 border transition-all space-y-4 relative ${
+                        isHighRisk
+                          ? 'border-rose-500/40 shadow-[0_0_25px_rgba(244,63,94,0.15)]'
+                          : isMediumRisk
+                          ? 'border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.12)]'
+                          : 'border-[#C5A880]/30'
+                      }`}>
+                      {/* Top Meta */}
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-lg bg-[#C5A880]/15 text-[#C5A880] text-xs font-bold uppercase tracking-wider border border-[#C5A880]/30">
+                              Table {ord.table_number || 'QR'}
+                            </span>
+                            <span className="text-[11px] font-mono text-[#EAE6DF]/60">
+                              {ord.order_number || `#${String(ord.id).slice(0, 8)}`}
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-base text-[#EAE6DF] mt-1.5">
+                            {ord.customer_name || 'Guest Patron'}
+                            {ord.customer_phone ? ` · ${ord.customer_phone}` : ''}
+                          </h4>
+                        </div>
+
+                        {/* Risk Badge */}
+                        <div className="flex flex-col items-end gap-1">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border flex items-center gap-1 ${
+                              isHighRisk
+                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                                : isMediumRisk
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            }`}>
+                            {isHighRisk ? <AlertTriangle className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
+                            {isHighRisk ? 'Security Hold' : isMediumRisk ? 'Medium Risk' : 'Standard'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Risk Reasons */}
+                      {ord.risk_reasons && ord.risk_reasons.length > 0 && (
+                        <div className="p-2.5 rounded-xl bg-[#0A0A0A] border border-[#C5A880]/10 space-y-1">
+                          <span className="text-[9px] uppercase tracking-wider text-[#C5A880] font-bold block">
+                            Security Signals:
+                          </span>
+                          {ord.risk_reasons.map((r, i) => (
+                            <p key={i} className="text-[11px] text-[#EAE6DF]/70 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                              {r}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Items summary */}
+                      <div className="p-3 rounded-xl bg-[#121212] space-y-1.5 text-xs">
+                        <div className="flex justify-between text-[10px] text-[#EAE6DF]/40 uppercase tracking-wider font-semibold pb-1 border-b border-[#C5A880]/10">
+                          <span>Items Ordered</span>
+                          <span>Total</span>
+                        </div>
+                        {(ord.dish_names || []).map((name, idx) => (
+                          <div key={idx} className="flex justify-between text-[#EAE6DF]/90">
+                            <span>{name}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between pt-2 border-t border-[#C5A880]/10 font-bold text-sm">
+                          <span className="text-[#EAE6DF]">Grand Total:</span>
+                          <span className="text-[#C5A880]">₹{Number(ord.total_amount || 0).toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-[#C5A880]/15">
+                        <button
+                          onClick={() => handleVerifyOrder(ord.id, 'confirm')}
+                          disabled={isBusy}
+                          className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 disabled:opacity-50">
+                          <UserCheck className="w-4 h-4" />
+                          {isBusy ? 'Transmitting...' : 'Confirm Guest Present (Send KOT)'}
+                        </button>
+                        <button
+                          onClick={() => setRejectVerifyModal(ord)}
+                          disabled={isBusy}
+                          className="py-2.5 px-4 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all">
+                          <UserX className="w-4 h-4" />
+                          Reject / Absent
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 5: Ready to Serve Workflow (Kitchen -> Waiter -> Table) */}
+        {activeTab === 'ready' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl glass-dark border border-[#C5A880]/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Clock3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
+                    Ready to Serve Queue
+                  </h3>
+                  <p className="text-xs text-[#EAE6DF]/60">
+                    Pick up cooked dishes from the kitchen pass and mark them as served at the guest table.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/waiter/ready"
+                  className="px-3.5 py-2 rounded-xl bg-[#C5A880] text-[#0A0A0A] font-bold text-xs hover:brightness-110 transition-all flex items-center gap-1.5 shadow-md">
+                  <span>Open Full-Screen Mode</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {feedbackMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs text-center font-medium">
+                {feedbackMsg}
+              </div>
+            )}
+
+            {readyOrders.length === 0 ? (
+              <div className="py-24 text-center glass-dark rounded-3xl border border-[#C5A880]/15">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                </div>
+                <h4 className="font-bold text-base text-[#EAE6DF] mb-1" style={{ fontFamily: 'Cinzel, serif' }}>
+                  Kitchen Pass is Clear
+                </h4>
+                <p className="text-xs text-[#EAE6DF]/60 max-w-sm mx-auto">
+                  No orders are currently waiting at the kitchen pass. Active orders are still cooking in the kitchen.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {readyOrders.map((ord) => {
+                  const isPickedUp = ord.status === 'picked_up';
+                  return (
+                    <div
+                      key={ord.id}
+                      className={`glass-dark rounded-3xl p-5 border transition-all flex flex-col justify-between shadow-xl ${
+                        isPickedUp
+                          ? 'border-sky-500/40 bg-[#0c141c]'
+                          : 'border-[#C5A880]/30 hover:border-[#C5A880]/60'
+                      }`}>
+                      <div>
+                        {/* Table Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <span className="text-[10px] font-mono text-[#C5A880] uppercase tracking-wider block">
+                              {ord.order_number || `#${String(ord.id).slice(0, 8)}`}
+                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-xl font-black text-white font-mono">
+                                {ord.table_number ? `TABLE ${ord.table_number}` : 'TAKEAWAY PASS'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span
+                            className={`px-2.5 py-1 rounded-xl text-xs font-bold font-mono border ${
+                              isPickedUp
+                                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            }`}>
+                            {isPickedUp ? 'En Route' : 'Ready to Pick Up'}
+                          </span>
+                        </div>
+
+                        {/* Items */}
+                        <div className="space-y-1.5 p-3 rounded-2xl bg-[#121212]/90 border border-[#C5A880]/15 mb-4 text-xs">
+                          {(ord.dish_names || []).map((name, i) => (
+                            <div key={i} className="flex justify-between text-[#EAE6DF]">
+                              <span className="font-semibold">{name}</span>
+                              <span className="text-[#C5A880] font-mono font-bold">× 1</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="pt-2 border-t border-[#C5A880]/15">
+                        {!isPickedUp ? (
+                          <button
+                            onClick={() => handlePickupFood(ord)}
+                            className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#C5A880] to-[#9E825D] hover:brightness-110 text-[#0A0A0A] font-black text-xs uppercase tracking-wider shadow-warm flex items-center justify-center gap-2 transition-all">
+                            <Utensils className="w-4 h-4" /> Pick Up Food from Pass
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleServeFood(ord)}
+                            className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:brightness-110 text-white font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all">
+                            <CheckCircle2 className="w-4 h-4" /> Mark as Served at Table
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Reject Verification Modal */}
+      <AnimatePresence>
+        {rejectVerifyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-dark border border-rose-500/30 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl relative">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5 text-rose-400">
+                  <ShieldAlert className="w-5 h-5" />
+                  <h3 className="font-bold text-base text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
+                    Reject Table Order
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setRejectVerifyModal(null)}
+                  className="text-[#EAE6DF]/60 hover:text-[#EAE6DF]">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-[#EAE6DF]/70">
+                Rejecting Order <span className="text-[#C5A880] font-mono">{rejectVerifyModal.order_number || rejectVerifyModal.id}</span> for <span className="font-bold text-white">Table {rejectVerifyModal.table_number}</span>. This order will be cancelled and will NOT reach the kitchen.
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-[11px] uppercase tracking-wider text-[#C5A880] font-semibold block">
+                  Select Reason:
+                </label>
+                {[
+                  'Customer absent from table / remote QR abuse',
+                  'Accidental duplicate order by guest',
+                  'Guest changed mind / left restaurant',
+                  'Table occupied by different guests',
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setVerifyRejectReason(reason)}
+                    className={`w-full text-left p-3 rounded-xl border text-xs transition-all ${
+                      verifyRejectReason === reason
+                        ? 'border-rose-500 bg-rose-500/15 text-rose-300 font-semibold'
+                        : 'border-[#C5A880]/15 bg-[#121212] text-[#EAE6DF]/70 hover:border-[#C5A880]/30'
+                    }`}>
+                    {reason}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2.5 pt-3 border-t border-[#C5A880]/15">
+                <button
+                  onClick={() => setRejectVerifyModal(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 text-[#EAE6DF] font-bold text-xs uppercase tracking-wider hover:bg-[#252525] transition-all">
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleVerifyOrder(rejectVerifyModal.id, 'reject', verifyRejectReason)}
+                  disabled={verifyingId === rejectVerifyModal.id}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 text-white font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-md">
+                  {verifyingId === rejectVerifyModal.id ? 'Processing...' : 'Confirm Rejection'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

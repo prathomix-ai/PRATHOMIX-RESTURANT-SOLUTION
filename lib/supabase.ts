@@ -19,6 +19,8 @@ export const RESTAURANT_TABLES = {
   staffProfiles: 'staff_profiles',
   attendance: 'attendance',
   leaveRequests: 'leave_requests',
+  orderStatusHistory: 'order_status_history',
+  notifications: 'notifications',
 } as const;
 
 export const RESTAURANT_SEED_DISHES: Dish[] = [
@@ -413,14 +415,57 @@ export type Order = {
   discount_amount?: number;
   coupon_code?: string;
   split_count?: number;
-  status: 'placed' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
+  status: 'pending_verification' | 'placed' | 'preparing' | 'ready' | 'picked_up' | 'served' | 'completed' | 'cancelled';
+  priority?: 'NORMAL' | 'HIGH' | 'URGENT';
+  verification_status?: 'PENDING_TABLE_VERIFICATION' | 'CONFIRMED' | 'REJECTED' | 'HOLD';
+  risk_level?: 'LOW' | 'MEDIUM' | 'HIGH';
+  risk_reasons?: string[];
+  session_id?: string;
+  table_session_id?: string;
+  verified_by?: string;
+  verified_at?: string;
+  rejection_reason?: string;
+  idempotency_key?: string;
   payment_status?: 'pending' | 'paid' | 'failed' | 'refunded' | 'partial';
   payment_method?: 'cash' | 'upi' | 'card' | 'online' | 'other';
   notes?: string;
   kot_printed?: boolean;
   estimated_ready_at?: string;
+  ready_at?: string;
+  picked_up_at?: string;
+  picked_up_by?: string;
+  served_at?: string;
+  served_by?: string;
+  partial_ready?: boolean;
+  ready_items_count?: number;
+  total_items_count?: number;
   created_at?: string;
   updated_at?: string;
+};
+
+export type OrderStatusHistory = {
+  id?: string;
+  order_id: string;
+  old_status?: string;
+  new_status: string;
+  changed_by?: string;
+  changed_by_role?: 'chef' | 'waiter' | 'admin' | 'reception' | 'system' | 'customer';
+  changed_at: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type ServingNotification = {
+  id: string;
+  restaurant_id?: string;
+  order_id: string;
+  order_number: string;
+  table_number: number;
+  type: 'ORDER_READY' | 'ORDER_PICKED_UP' | 'ORDER_SERVED' | 'PICKUP_DELAY_ALERT';
+  message: string;
+  priority: 'NORMAL' | 'HIGH' | 'URGENT';
+  items_summary: string;
+  created_at: string;
+  acknowledged?: boolean;
 };
 
 export type InventoryItem = {

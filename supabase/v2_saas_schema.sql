@@ -341,5 +341,98 @@ CREATE POLICY "Allow read inventory logs" ON inventory_logs FOR SELECT USING (tr
 CREATE POLICY "Allow write inventory logs" ON inventory_logs FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow read customers"    ON customers FOR SELECT USING (true);
 CREATE POLICY "Allow write customers"   ON customers FOR ALL USING (true);
+-- Allow read/write audit
 CREATE POLICY "Allow read audit"        ON audit_logs FOR SELECT USING (true);
 CREATE POLICY "Allow insert audit"      ON audit_logs FOR INSERT WITH CHECK (true);
+
+-- ── 14. Table Sessions & Dine-In Fraud Prevention Architecture ────────────────
+CREATE TABLE IF NOT EXISTS table_sessions (
+  id                  uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  restaurant_id       uuid NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+  table_number        integer NOT NULL,
+  session_token       text NOT NULL UNIQUE,
+  device_fingerprint  text,
+  status              text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'EXPIRED', 'CLOSED', 'CANCELLED', 'REQUIRES_VERIFICATION')),
+  is_trusted          boolean NOT NULL DEFAULT false, -- Becomes true once physical presence is verified by staff
+  trusted_by          text,
+  trusted_at          timestamptz,
+  customer_name       text,
+  customer_phone      text,
+  order_count         integer DEFAULT 0,
+  total_spent         numeric(10,2) DEFAULT 0,
+  created_at          timestamptz DEFAULT now(),
+  last_activity_at    timestamptz DEFAULT now(),
+  expires_at          timestamptz DEFAULT (now() + interval '2 hours')
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_table ON table_sessions(restaurant_id, table_number, status);
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON table_sessions(session_token);
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS verification_status text DEFAULT 'PENDING_TABLE_VERIFICATION' CHECK (verification_status IN ('PENDING_TABLE_VERIFICATION', 'CONFIRMED', 'REJECTED', 'HOLD'));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS risk_level text DEFAULT 'LOW' CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH'));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS risk_reasons text[] DEFAULT ARRAY[]::text[];
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS session_id text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS verified_by text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS verified_at timestamptz;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS rejection_reason text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key text;
+
+ALTER TABLE table_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read sessions" ON table_sessions FOR SELECT USING (true);
+CREATE POLICY "Public write sessions" ON table_sessions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update sessions" ON table_sessions FOR UPDATE USING (true);
+
+-- ============================================================================
+-- 15. KITCHEN → WAITER → TABLE SERVING WORKFLOW (#58)
+-- ============================================================================
+
+-- Add Serving Lifecycle columns to orders if not existing
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'NORMAL';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS ready_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS picked_up_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS picked_up_by TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS served_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS served_by TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS partial_ready BOOLEAN DEFAULT false;
+
+-- Order Status History Table (Audit Trail)
+CREATE TABLE IF NOT EXISTS order_status_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID NOT NULL,
+    old_status TEXT,
+    new_status TEXT NOT NULL,
+    changed_by TEXT,
+    changed_by_role TEXT,
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_status_history_order_id ON order_status_history(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_status_history_changed_at ON order_status_history(changed_at);
+
+ALTER TABLE order_status_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read status history" ON order_status_history FOR SELECT USING (true);
+CREATE POLICY "Public insert status history" ON order_status_history FOR INSERT WITH CHECK (true);
+
+-- Notifications Table
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID,
+    order_id UUID,
+    order_number TEXT,
+    table_number INTEGER,
+    type TEXT NOT NULL,
+    message TEXT NOT NULL,
+    priority TEXT DEFAULT 'NORMAL',
+    items_summary TEXT,
+    acknowledged BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_restaurant ON notifications(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read notifications" ON notifications FOR SELECT USING (true);
+CREATE POLICY "Public write notifications" ON notifications FOR ALL USING (true);
+

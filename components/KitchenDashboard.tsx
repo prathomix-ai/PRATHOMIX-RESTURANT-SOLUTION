@@ -72,7 +72,14 @@ export default function KitchenDashboard() {
         .limit(60);
 
       if (data) {
-        setOrders(data as any);
+        // DEFENSIVE SAFEGUARD: Only verified orders reach the kitchen display
+        const verifiedOnly = (data as any[]).filter(
+          (o) =>
+            o.status !== 'pending_verification' &&
+            o.verification_status !== 'PENDING_TABLE_VERIFICATION' &&
+            o.verification_status !== 'HOLD'
+        );
+        setOrders(verifiedOnly);
       }
     } catch (err) {
       console.error('KDS fetch error:', err);
@@ -105,19 +112,33 @@ export default function KitchenDashboard() {
   }, [fetchOrders]);
 
   // Status progression action
-  async function handleAdvanceStatus(orderId: string, nextStatus: 'preparing' | 'ready' | 'completed' | 'cancelled') {
+  async function handleAdvanceStatus(orderId: string, nextStatus: 'preparing' | 'ready' | 'completed' | 'cancelled', priority?: 'NORMAL' | 'HIGH' | 'URGENT') {
     setProcessingId(orderId);
     try {
-      const updateData: Record<string, unknown> = { status: nextStatus };
-      if (nextStatus === 'cancelled' && rejectReason) {
-        updateData.notes = `Rejected by Kitchen: ${rejectReason}`;
-      }
+      if (nextStatus === 'ready') {
+        // Use dedicated serving endpoint to trigger waiter notifications & time tracking
+        await fetch('/api/orders/serve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'ready',
+            order_id: orderId,
+            priority: priority || 'NORMAL',
+            user_role: 'chef',
+          }),
+        });
+      } else {
+        const updateData: Record<string, unknown> = { status: nextStatus };
+        if (nextStatus === 'cancelled' && rejectReason) {
+          updateData.notes = `Rejected by Kitchen: ${rejectReason}`;
+        }
 
-      await fetch('/api/orders', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: orderId, ...updateData }),
-      });
+        await fetch('/api/orders', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: orderId, ...updateData }),
+        });
+      }
 
       setRejectModalOrder(null);
       await fetchOrders();
@@ -133,12 +154,18 @@ export default function KitchenDashboard() {
     window.location.href = '/login';
   }
 
-  // Group orders into 4 KDS Kanban columns
+  // Group orders into 4 KDS Kanban columns (Verified KOTs only)
   const kanbanColumns = useMemo(() => {
-    const newPlaced = orders.filter((o) => o.status === 'placed');
-    const preparing = orders.filter((o) => o.status === 'preparing');
-    const ready = orders.filter((o) => o.status === 'ready');
-    const completed = orders.filter((o) => o.status === 'completed' || o.status === 'served').slice(0, 10);
+    const verified = orders.filter(
+      (o) =>
+        o.status !== 'pending_verification' &&
+        o.verification_status !== 'PENDING_TABLE_VERIFICATION' &&
+        o.verification_status !== 'HOLD'
+    );
+    const newPlaced = verified.filter((o) => o.status === 'placed');
+    const preparing = verified.filter((o) => o.status === 'preparing');
+    const ready = verified.filter((o) => o.status === 'ready' || o.status === 'picked_up');
+    const completed = verified.filter((o) => o.status === 'completed' || o.status === 'served').slice(0, 10);
 
     return {
       placed: newPlaced,
@@ -230,21 +257,46 @@ export default function KitchenDashboard() {
             )}
 
             {columnType === 'preparing' && (
-              <button
-                disabled={busy}
-                onClick={() => handleAdvanceStatus(ord.id, 'ready')}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:brightness-110 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md">
-                <CheckCircle2 className="w-4 h-4" /> Mark Ready for Server
-              </button>
+              <div className="w-full space-y-2">
+                <button
+                  disabled={busy}
+                  onClick={() => handleAdvanceStatus(ord.id, 'ready', ord.priority || 'NORMAL')}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:brightness-110 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md">
+                  <CheckCircle2 className="w-4 h-4" /> Mark Ready for Server
+                </button>
+              </div>
             )}
 
             {columnType === 'ready' && (
-              <button
-                disabled={busy}
-                onClick={() => handleAdvanceStatus(ord.id, 'completed')}
-                className="w-full py-2.5 rounded-xl bg-[#C5A880]/20 hover:bg-[#C5A880] text-[#C5A880] hover:text-[#0A0A0A] font-bold text-xs border border-[#C5A880]/40 flex items-center justify-center gap-1.5 transition-all">
-                <CheckCheck className="w-4 h-4" /> Delivered to Table
-              </button>
+              <div className="w-full space-y-2">
+                {ord.status === 'picked_up' ? (
+                  <div className="w-full p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-xs text-sky-200">
+                    <div className="flex items-center justify-between font-semibold">
+                      <span>🍽️ Picked up by {ord.picked_up_by || ord.waiter_name || 'Waiter'}</span>
+                      <span className="font-mono text-[10px] text-sky-300">Table {ord.table_number}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-[11px] text-amber-300/90 font-medium px-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      Awaiting Server Pickup
+                    </span>
+                    {ord.ready_at && (
+                      <span className="font-mono text-xs font-bold text-[#C5A880]">
+                        {formatElapsedTimer(ord.ready_at, nowTimestamp)}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  disabled={busy}
+                  onClick={() => handleAdvanceStatus(ord.id, 'completed')}
+                  className="w-full py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#C5A880]/20 text-[#C5A880] font-bold text-xs border border-[#C5A880]/30 flex items-center justify-center gap-1.5 transition-all">
+                  <CheckCheck className="w-3.5 h-3.5" /> Direct Pass Serve
+                </button>
+              </div>
             )}
           </div>
         )}

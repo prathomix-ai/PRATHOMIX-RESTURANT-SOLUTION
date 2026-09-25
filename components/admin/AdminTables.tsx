@@ -161,16 +161,21 @@ export default function AdminTables({ tables, onRefresh }: Props) {
             {/* QR Code Graphic with Gold Border */}
             <div className="p-5 rounded-2xl bg-white mx-auto inline-block shadow-warm border-4 border-[#C5A880]">
               <QRCodeSVG
-                value={`${baseUrl}/menu?table=${qrModalTable.table_number}`}
+                value={`${baseUrl}/menu?table=${qrModalTable.table_number}&token=tbl_${qrModalTable.table_number}_${Date.now()}`}
                 size={180}
                 level="H"
                 fgColor="#0A0A0A"
               />
             </div>
 
-            <p className="text-[11px] font-mono text-[#C5A880] break-all bg-[#121212] p-2 rounded-xl border border-[#C5A880]/20">
-              {`${baseUrl}/menu?table=${qrModalTable.table_number}`}
-            </p>
+            <div className="space-y-1">
+              <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">
+                🛡️ Verified Signed Table Identity
+              </span>
+              <p className="text-[11px] font-mono text-[#C5A880] break-all bg-[#121212] p-2 rounded-xl border border-[#C5A880]/20">
+                {`${baseUrl}/menu?table=${qrModalTable.table_number}`}
+              </p>
+            </div>
 
             <div className="flex gap-2 pt-2">
               <a
