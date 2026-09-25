@@ -5,10 +5,14 @@ import { Send, Mic, MicOff, Bot, User, X, MessageSquare, Loader2 } from 'lucide-
 import { useVoice } from '@/hooks/useVoice';
 import DishCard from './DishCard';
 import type { Dish } from '@/lib/supabase';
+import { getClientSession } from '@/lib/auth';
 
 type ToolResult =
   | { type: 'dishes';  data: Dish[]  }
   | { type: 'booking'; data: Record<string, unknown> }
+  | { type: 'metrics'; data: any }
+  | { type: 'inventory'; data: any }
+  | { type: 'tables'; data: any }
   | null;
 
 type Message = {
@@ -57,10 +61,14 @@ export default function ChatInterface() {
         content: m.content,
       }));
 
-      const res  = await fetch('/api/chat', {
+      const session = getClientSession();
+      const res = await fetch('/api/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ messages: history }),
+        body:    JSON.stringify({
+          messages: history,
+          role: session?.role || 'customer',
+        }),
       });
       const data = await res.json();
 

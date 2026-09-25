@@ -1,13 +1,13 @@
 'use client';
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import dynamic from 'next/dynamic';
+import { useDeferredValue, useEffect, useMemo, useState, Suspense } from 'react';
+import nextDynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import DishCard from '@/components/DishCard';
 import { motion } from 'framer-motion';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import type { Dish } from '@/lib/supabase';
 
-const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
+const ChatInterface = nextDynamic(() => import('@/components/ChatInterface'), {
   ssr: false,
   loading: () => null,
 });
@@ -18,7 +18,7 @@ const normalize = (value: string) => value.trim().toLowerCase();
 
 import { useSearchParams } from 'next/navigation';
 
-export default function MenuPage() {
+function MenuContent() {
   const searchParams = useSearchParams();
   const tableParam = searchParams.get('table');
 
@@ -213,5 +213,18 @@ export default function MenuPage() {
       </main>
       <ChatInterface />
     </>
+  );
+}
+
+export default function MenuPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+          <div className="w-10 h-10 border-2 border-[#C5A880]/30 border-t-[#C5A880] rounded-full animate-spin" />
+        </div>
+      }>
+      <MenuContent />
+    </Suspense>
   );
 }

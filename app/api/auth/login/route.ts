@@ -116,7 +116,7 @@ export async function POST(req: Request) {
           restaurant_id: DEFAULT_RESTAURANT_ID,
           role: 'admin',
           name: 'Executive Admin',
-          email: 'admin@prathomix.com',
+          email: 'admin@prathomix.tech',
           status: 'active',
         };
       } else if (cleanPassword === 'reception2026') {

@@ -32,7 +32,7 @@ export const DEMO_ACCOUNTS: Array<{
   employee_code?: string;
 }> = [
   { email: 'owner@prathomix.com', passcode: 'prathomix2024', role: 'owner', name: 'Master Restaurateur', employee_code: 'ADM-01' },
-  { email: 'admin@prathomix.com', passcode: 'prathomix2024', role: 'admin', name: 'Executive Admin', employee_code: 'ADM-02' },
+  { email: 'admin@prathomix.tech', passcode: 'prathomix2024', role: 'admin', name: 'Executive Admin', employee_code: 'ADM-02' },
   { email: 'reception@prathomix.com', passcode: 'reception2026', role: 'receptionist', name: 'Elena Rostova (Front Desk)', employee_code: 'REC-01' },
   { email: 'chef@prathomix.com', passcode: 'kitchen2026', role: 'chef', name: 'Chef Jean-Luc (Head Chef)', employee_code: 'CHF-01' },
   { email: 'waiter@prathomix.com', passcode: 'waiter2026', role: 'waiter', name: 'Marco Vance (Lead Server)', employee_code: 'W-1001' },

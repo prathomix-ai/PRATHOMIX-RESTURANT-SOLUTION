@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase } from '@/lib/supabase';
 import { generateRestaurantText } from '@/lib/llm';
 
+export const dynamic = 'force-dynamic';
+
 const DUMMY_FEEDBACK = [
   { rating: 5, comment: 'The chicken dishes are always fresh, flavorful, and served beautifully.' },
   { rating: 4, comment: 'Service is warm and attentive, but the dinner rush can take a little too long.' },

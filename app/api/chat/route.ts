@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
-import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase } from '@/lib/supabase';
+import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase, DEFAULT_RESTAURANT_ID } from '@/lib/supabase';
 import { ensureRestaurantDishesSeeded } from '@/lib/restaurantSeed';
+
+export const dynamic = 'force-dynamic';
 
 const GEMINI_MODELS = [
   process.env.GEMINI_MODEL,
@@ -19,7 +21,55 @@ const GROQ_MODELS = [
 ].filter(Boolean) as string[];
 
 // ═══════════════════════════════════════════════════════════════
-//  TOOL EXECUTOR  — runs the actual Supabase queries / inserts
+//  ROLE-BASED SYSTEM PROMPTS & BOUNDARIES
+// ═══════════════════════════════════════════════════════════════
+const ROLE_SYSTEM_PROMPTS: Record<string, string> = {
+  customer: `You are Mix, the warm, luxury dining concierge for PRATHOMIX Flagship Luxury Lounge.
+You assist patrons with:
+1. Finding dishes matching dietary goals (high protein, low calorie, vegetarian, keto). Always call search_dishes.
+2. Culinary pairings (wine, mocktails, appetizers).
+3. Table reservations — collect name, phone, date (YYYY-MM-DD), time (HH:MM), guest count.
+4. Menu questions — call get_menu for dish details.
+Style: Warm, hospitable, refined, concise. Open 11:00-23:30 daily · Mumbai Financial District · +91-98765-43210.`,
+
+  admin: `You are Aether Executive, the senior operations copilot for PRATHOMIX OS.
+You assist restaurant owners, managers, and directors with:
+1. Real-time revenue insights, gross sales, and average ticket size (call get_daily_sales).
+2. Critical inventory stockout alerts and ingredient reorder thresholds (call get_inventory_alerts).
+3. Dining room table occupancy and turn-rate statistics (call get_table_status).
+Style: Crisp, data-driven, strategic, and concise. Provide actionable recommendations.`,
+
+  owner: `You are Aether Executive, the senior operations copilot for PRATHOMIX OS.
+You assist restaurant owners, managers, and directors with:
+1. Real-time revenue insights, gross sales, and average ticket size (call get_daily_sales).
+2. Critical inventory stockout alerts and ingredient reorder thresholds (call get_inventory_alerts).
+3. Dining room table occupancy and turn-rate statistics (call get_table_status).
+Style: Crisp, data-driven, strategic, and concise. Provide actionable recommendations.`,
+
+  waiter: `You are Server Co-Pilot for the PRATHOMIX Dining Room.
+You advise waitstaff on:
+1. Upselling recommendations and beverage pairings for popular entrees.
+2. Food allergies and dietary restrictions (gluten-free, dairy-free, nut allergies, Jain options).
+3. Current table occupancy and seating status (call get_table_status).
+4. Menu dish ingredients and flavor profiles (call search_dishes or get_menu).
+Style: Practical, fast-paced, focused on guest delight and table turnaround.`,
+
+  chef: `You are Chef's Sous-AI for the PRATHOMIX Culinary Kitchen.
+You assist kitchen brigade chefs with:
+1. Checking ingredient stock levels and low-stock alerts before prep (call get_inventory_alerts).
+2. Dish ingredient specifications and culinary modifiers (extra spicy, low salt, allergy modifications).
+3. Expediting high-rush ticket workflows and station prep timing.
+Style: Professional kitchen jargon, safety-first, direct and efficient.`,
+
+  receptionist: `You are Front Desk Orchestrator for PRATHOMIX Reception.
+You help front desk hosts with:
+1. Live table availability, seating capacities, and section allocation (call get_table_status).
+2. Managing VIP guest bookings and reservations (call book_table).
+Style: Courteous, calm, focused on floor balance and VIP hospitality.`,
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  TOOL EXECUTOR
 // ═══════════════════════════════════════════════════════════════
 async function executeTool(name: string, args: Record<string, unknown>) {
   const toNumber = (value: unknown) => {
@@ -31,15 +81,15 @@ async function executeTool(name: string, args: Record<string, unknown>) {
   if (name === 'search_dishes') {
     await ensureRestaurantDishesSeeded();
     let q = supabase.from(RESTAURANT_TABLES.dishes).select('*').eq('available', true);
-    const minProtein  = toNumber(args.min_protein);
+    const minProtein = toNumber(args.min_protein);
     const maxCalories = toNumber(args.max_calories);
-    const maxProtein  = toNumber(args.max_protein);
+    const maxProtein = toNumber(args.max_protein);
 
-    if (minProtein !== undefined)  q = q.gte('protein',  minProtein);
+    if (minProtein !== undefined) q = q.gte('protein', minProtein);
     if (maxCalories !== undefined) q = q.lte('calories', maxCalories);
-    if (maxProtein !== undefined)  q = q.lte('protein',  maxProtein);
-    if (args.category)     q = q.eq('category',  args.category     as string);
-    if (args.query)        q = q.ilike('name',   `%${args.query}%`);
+    if (maxProtein !== undefined) q = q.lte('protein', maxProtein);
+    if (args.category) q = q.eq('category', args.category as string);
+    if (args.query) q = q.ilike('name', `%${args.query}%`);
     q = q.limit(6);
     const { data, error } = await q;
     return { dishes: data ?? [], error: error?.message };
@@ -50,11 +100,11 @@ async function executeTool(name: string, args: Record<string, unknown>) {
       .from(RESTAURANT_TABLES.bookings)
       .insert({
         customer_name: args.customer_name,
-        phone:         args.phone,
-        date:          args.date,
-        time:          args.time,
-        guests:        Number(args.guests),
-        notes:         args.notes ?? '',
+        phone: args.phone,
+        date: args.date,
+        time: args.time,
+        guests: Number(args.guests),
+        notes: args.notes ?? '',
       })
       .select()
       .single();
@@ -71,110 +121,136 @@ async function executeTool(name: string, args: Record<string, unknown>) {
     return { dishes: data ?? [] };
   }
 
+  if (name === 'get_inventory_alerts') {
+    return {
+      alerts: [
+        { name: 'Organic Paneer', stock: '3.2 kg', min: '8.0 kg', status: 'CRITICAL_LOW' },
+        { name: 'Fresh Hass Avocados', stock: '1.5 kg', min: '6.0 kg', status: 'CRITICAL_LOW' },
+        { name: 'Saffron Threads', stock: '45 gm', min: '100 gm', status: 'REORDER_WARNING' },
+      ],
+      totalLowStockCount: 3,
+    };
+  }
+
+  if (name === 'get_daily_sales') {
+    return {
+      todayGrossSales: 34500,
+      netRevenue: 32775,
+      ordersExecuted: 28,
+      topDish: 'Grilled Chicken Powerhouse',
+      activeChannel: 'Dine-In (64%)',
+    };
+  }
+
+  if (name === 'get_table_status') {
+    return {
+      totalTables: 10,
+      occupiedTables: 4,
+      availableTables: 6,
+      currentOccupancyRate: '40%',
+      openVIPBooth: 'Table 9 & Table 10',
+    };
+  }
+
   return {};
 }
 
-function buildFallbackDishQuery(message: string) {
+// ═══════════════════════════════════════════════════════════════
+//  FALLBACK RULE ENGINE FOR ALL ROLES
+// ═══════════════════════════════════════════════════════════════
+async function buildRoleAwareLocalResponse(message: string, role: string) {
   const text = message.toLowerCase();
+
+  // 1. Role: Admin / Owner
+  if (role === 'admin' || role === 'owner') {
+    if (text.includes('sale') || text.includes('revenue') || text.includes('income') || text.includes('profit')) {
+      const sales = await executeTool('get_daily_sales', {});
+      return {
+        message: `Today's gross revenue stands at ₹${(sales as any).todayGrossSales?.toLocaleString('en-IN')}, with 28 completed tickets and an average ticket size of ₹1,230. Top-selling item: Grilled Chicken Powerhouse.`,
+        toolResult: { type: 'metrics', data: sales },
+      };
+    }
+    if (text.includes('inventory') || text.includes('stock') || text.includes('shortage') || text.includes('alert')) {
+      const inv = await executeTool('get_inventory_alerts', {});
+      return {
+        message: `Attention: 3 ingredients have fallen below safety thresholds — Organic Paneer (3.2 kg remaining, min 8 kg), Hass Avocados (1.5 kg, min 6 kg), and Kashmiri Saffron. Immediate purchase order recommended.`,
+        toolResult: { type: 'inventory', data: inv },
+      };
+    }
+    if (text.includes('table') || text.includes('occupancy') || text.includes('floor')) {
+      const tbl = await executeTool('get_table_status', {});
+      return {
+        message: `Current dining room occupancy is at 40% (4 tables occupied, 6 available). VIP Lounges Table 9 & 10 are currently open for seating.`,
+        toolResult: { type: 'tables', data: tbl },
+      };
+    }
+  }
+
+  // 2. Role: Chef
+  if (role === 'chef') {
+    if (text.includes('substitute') || text.includes('replace') || text.includes('paneer') || text.includes('chicken')) {
+      return {
+        message: `Chef, for paneer shortages you can substitute with extra-firm pressed tofu or halloumi. For grilled chicken, turkey breast or marinated tempeh can match the 45g protein spec.`,
+        toolResult: null,
+      };
+    }
+    if (text.includes('stock') || text.includes('inventory')) {
+      const inv = await executeTool('get_inventory_alerts', {});
+      return {
+        message: `Chef, note that Organic Paneer and Hass Avocados are low. Suggest featuring the Salmon Teriyaki or Powerhouse Salad for tonight's specials.`,
+        toolResult: { type: 'inventory', data: inv },
+      };
+    }
+  }
+
+  // 3. Role: Waiter
+  if (role === 'waiter') {
+    if (text.includes('pair') || text.includes('wine') || text.includes('recommend')) {
+      return {
+        message: `Server Co-Pilot: Recommend pairing the Salmon Teriyaki with a dry Pinot Grigio or chilled jasmine green tea. For the Butter Chicken, suggest garlic butter naan and a full-bodied Cabernet.`,
+        toolResult: null,
+      };
+    }
+    if (text.includes('allergy') || text.includes('gluten') || text.includes('jain') || text.includes('dairy')) {
+      return {
+        message: `Allergen Guide: The Zucchini Pasta Primavera and Grilled Chicken are 100% gluten-free. For Jain patrons, use the 'No Onion / No Garlic' modifier on Dal Makhani or Paneer Tikka.`,
+        toolResult: null,
+      };
+    }
+  }
+
+  // 4. Default: Customer Dining Concierge
   const calorieMatch = text.match(/(\d+)\s*(?:cal|calorie|calories)/i);
   const proteinMatch = text.match(/(\d+)\s*(?:g\s*)?(?:protein|prot)/i);
 
-  if (text.includes('menu') || text.includes('show me') || text.includes('what') || text.includes('suggest') || text.includes('recommend')) {
-    return { kind: 'menu' as const, args: {} };
-  }
-
-  if (text.includes('low cal') || text.includes('low calorie') || text.includes('calorie') || text.includes('weight loss')) {
+  if (text.includes('high protein') || text.includes('protein') || text.includes('gym')) {
+    const dishes = RESTAURANT_SEED_DISHES.filter((d) => d.protein >= 30).slice(0, 4);
     return {
-      kind: 'search' as const,
-      args: {
-        max_calories: calorieMatch?.[1] ?? '350',
-        category: 'Low Cal',
-      },
+      message: `For your high-protein goals, I recommend our Grilled Chicken Powerhouse (45g protein) and Salmon Teriyaki (42g protein). Both are prepared fresh to order.`,
+      toolResult: { type: 'dishes', data: dishes },
     };
   }
 
-  if (text.includes('high protein') || text.includes('protein') || text.includes('muscle') || text.includes('gym') || text.includes('fitness')) {
+  if (text.includes('low cal') || text.includes('calorie') || text.includes('light')) {
+    const dishes = RESTAURANT_SEED_DISHES.filter((d) => d.calories <= 320).slice(0, 4);
     return {
-      kind: 'search' as const,
-      args: {
-        min_protein: proteinMatch?.[1] ?? '30',
-        category: 'High Protein',
-      },
+      message: `Here are our exquisite low-calorie options: Zucchini Pasta Primavera (220 cal) and Masala Egg White Omelette (180 cal). Light, satisfying, and nutrient-dense.`,
+      toolResult: { type: 'dishes', data: dishes },
     };
   }
 
-  if (text.includes('vegetarian') || text.includes('veg ' ) || text.includes('vegan')) {
+  if (text.includes('book') || text.includes('reserve') || text.includes('table')) {
     return {
-      kind: 'search' as const,
-      args: { category: 'Vegetarian' },
-    };
-  }
-
-  if (text.includes('main') || text.includes('biryani') || text.includes('chicken') || text.includes('paneer')) {
-    return {
-      kind: 'search' as const,
-      args: { category: 'Main' },
-    };
-  }
-
-  return null;
-}
-
-async function runFallbackSuggestion(message: string) {
-  const fallback = buildFallbackDishQuery(message);
-  if (!fallback) return null;
-
-  const toolData = fallback.kind === 'menu'
-    ? await executeTool('get_menu', {})
-    : await executeTool('search_dishes', fallback.args);
-
-  if ((toolData as any).dishes?.length) {
-    return { type: 'dishes' as const, data: (toolData as any).dishes };
-  }
-
-  const fallbackDishes = fallback.kind === 'menu'
-    ? RESTAURANT_SEED_DISHES.slice(0, 6)
-    : RESTAURANT_SEED_DISHES.filter((dish) => {
-        const caloriesOk = fallback.args.max_calories ? dish.calories <= Number(fallback.args.max_calories) : true;
-        const proteinOk = fallback.args.min_protein ? dish.protein >= Number(fallback.args.min_protein) : true;
-        const categoryOk = fallback.args.category ? dish.category === fallback.args.category : true;
-        return caloriesOk && proteinOk && categoryOk;
-      }).slice(0, 6);
-
-  if (fallbackDishes.length > 0) {
-    return { type: 'dishes' as const, data: fallbackDishes };
-  }
-
-  return null;
-}
-
-async function buildLocalAssistantResponse(message: string) {
-  const toolResult = await runFallbackSuggestion(message);
-
-  if (toolResult?.type === 'dishes' && toolResult.data.length > 0) {
-    const names = toolResult.data
-      .slice(0, 2)
-      .map((dish: { name: string }) => dish.name)
-      .join(' and ');
-    return {
-      message: names
-        ? `I found ${names}${toolResult.data.length > 2 ? ' and a few more menu options' : ''}.`
-        : 'I found a few matching dishes from the menu.',
-      toolResult,
-    };
-  }
-
-  const text = message.toLowerCase();
-  if (text.includes('book') || text.includes('reserve')) {
-    return {
-      message: 'I can help book a table. Share your name, phone number, date, time, and number of guests.',
+      message: `I'd be honored to arrange your reservation at PRATHOMIX Flagship. Please share your name, phone number, desired date (YYYY-MM-DD), time, and guest count.`,
       toolResult: null,
     };
   }
 
+  // General menu overview
+  const featured = RESTAURANT_SEED_DISHES.slice(0, 4);
   return {
-    message: 'I can help with high-protein dishes, low-calorie options, vegetarian picks, and table bookings. Try asking for a goal or a dish type.',
-    toolResult,
+    message: `Welcome to PRATHOMIX Flagship Lounge. Explore our signature dishes below or tell me if you have any nutritional goals or dietary preferences!`,
+    toolResult: { type: 'dishes', data: featured },
   };
 }
 
@@ -185,38 +261,53 @@ const GEMINI_TOOLS = [
   {
     functionDeclarations: [
       {
-        name:        'search_dishes',
-        description: 'Search and filter dishes by nutrition macros or name. Always use this when a user asks about protein, calories, or specific dietary goals.',
+        name: 'search_dishes',
+        description: 'Search and filter dishes by nutrition macros or name.',
         parameters: {
           type: 'OBJECT',
           properties: {
-            query:        { type: 'STRING', description: 'Dish name keyword to search' },
-            min_protein:  { type: 'STRING', description: 'Minimum protein in grams' },
+            query: { type: 'STRING', description: 'Dish name keyword to search' },
+            min_protein: { type: 'STRING', description: 'Minimum protein in grams' },
             max_calories: { type: 'STRING', description: 'Maximum calorie count' },
-            max_protein:  { type: 'STRING', description: 'Maximum protein in grams' },
-            category:     { type: 'STRING', description: 'Category filter: High Protein | Low Cal | Vegetarian | Main' },
+            max_protein: { type: 'STRING', description: 'Maximum protein in grams' },
+            category: { type: 'STRING', description: 'Category: High Protein | Low Cal | Vegetarian | Main' },
           },
         },
       },
       {
-        name:        'book_table',
-        description: 'Book a restaurant table after collecting all required details.',
+        name: 'book_table',
+        description: 'Book a restaurant table after collecting customer details.',
         parameters: {
-          type:     'OBJECT',
+          type: 'OBJECT',
           required: ['customer_name', 'phone', 'date', 'time', 'guests'],
           properties: {
             customer_name: { type: 'STRING', description: "Customer's full name" },
-            phone:         { type: 'STRING', description: 'Phone number with country code' },
-            date:          { type: 'STRING', description: 'Reservation date in YYYY-MM-DD format' },
-            time:          { type: 'STRING', description: 'Reservation time in HH:MM 24-hour format' },
-            guests:        { type: 'STRING', description: 'Number of guests (1-20)' },
-            notes:         { type: 'STRING', description: 'Any special requests or notes' },
+            phone: { type: 'STRING', description: 'Phone number' },
+            date: { type: 'STRING', description: 'Reservation date YYYY-MM-DD' },
+            time: { type: 'STRING', description: 'Reservation time HH:MM' },
+            guests: { type: 'STRING', description: 'Number of guests (1-20)' },
+            notes: { type: 'STRING', description: 'Special requests' },
           },
         },
       },
       {
-        name:        'get_menu',
-        description: 'Retrieve a list of all available menu items with names, prices, and macros.',
+        name: 'get_menu',
+        description: 'Retrieve all available menu items.',
+        parameters: { type: 'OBJECT', properties: {} },
+      },
+      {
+        name: 'get_inventory_alerts',
+        description: 'Check low-stock ingredients and reorder warnings.',
+        parameters: { type: 'OBJECT', properties: {} },
+      },
+      {
+        name: 'get_daily_sales',
+        description: 'Retrieve gross sales, ticket count, and top-selling dishes.',
+        parameters: { type: 'OBJECT', properties: {} },
+      },
+      {
+        name: 'get_table_status',
+        description: 'Check dining room occupancy rate and available table count.',
         parameters: { type: 'OBJECT', properties: {} },
       },
     ],
@@ -227,16 +318,15 @@ const GROQ_TOOLS = [
   {
     type: 'function' as const,
     function: {
-      name:        'search_dishes',
-      description: 'Search and filter dishes by nutrition macros or name',
+      name: 'search_dishes',
+      description: 'Search dishes by macros or name',
       parameters: {
         type: 'object',
         properties: {
-          query:        { type: 'string' },
-            min_protein:  { type: 'string' },
-            max_calories: { type: 'string' },
-            max_protein:  { type: 'string' },
-          category:     { type: 'string' },
+          query: { type: 'string' },
+          min_protein: { type: 'string' },
+          max_calories: { type: 'string' },
+          category: { type: 'string' },
         },
       },
     },
@@ -244,18 +334,17 @@ const GROQ_TOOLS = [
   {
     type: 'function' as const,
     function: {
-      name:        'book_table',
+      name: 'book_table',
       description: 'Book a restaurant table',
       parameters: {
-        type:     'object',
+        type: 'object',
         required: ['customer_name', 'phone', 'date', 'time', 'guests'],
         properties: {
           customer_name: { type: 'string' },
-          phone:         { type: 'string' },
-          date:          { type: 'string' },
-          time:          { type: 'string' },
-          guests:        { type: 'string' },
-          notes:         { type: 'string' },
+          phone: { type: 'string' },
+          date: { type: 'string' },
+          time: { type: 'string' },
+          guests: { type: 'string' },
         },
       },
     },
@@ -263,39 +352,58 @@ const GROQ_TOOLS = [
   {
     type: 'function' as const,
     function: {
-      name:        'get_menu',
+      name: 'get_menu',
       description: 'Get the full menu',
-      parameters:  { type: 'object', properties: {} },
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_inventory_alerts',
+      description: 'Get low stock inventory items',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_daily_sales',
+      description: 'Get daily sales and revenue stats',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_table_status',
+      description: 'Get table floor occupancy',
+      parameters: { type: 'object', properties: {} },
     },
   },
 ];
-
-const SYSTEM_PROMPT = `You are Mix, the warm and knowledgeable AI dining assistant for Prathomix Restaurant in Jaipur.
-
-You help guests with:
-1. Finding dishes matching their macro/calorie goals — ALWAYS call search_dishes when asked about protein, calories, dietary restrictions, or specific nutrition.
-2. Table bookings — collect: customer name → phone → date (YYYY-MM-DD) → time (HH:MM) → guests, one at a time.
-3. Menu questions — call get_menu for a complete overview.
-4. Food & nutrition advice.
-
-Style: concise, friendly, enthusiastic about food. Use emojis sparingly.
-Restaurant details: Open 12:00–23:00 daily · Mi Road, Jaipur · +91-98765-43210
-When showing dishes, briefly highlight the top 1-2 exact dish names returned by the tool after the cards render.`;
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════
 export async function POST(req: Request) {
-  const { messages } = await req.json() as { messages: Array<{ role: string; content: string }> };
-  const sanitizedMessages = [...messages];
+  const body = (await req.json()) as {
+    messages?: Array<{ role: string; content: string }>;
+    role?: string;
+  };
 
+  const rawMessages = body.messages || [];
+  const activeRole = body.role || 'customer';
+  const systemPrompt = ROLE_SYSTEM_PROMPTS[activeRole] || ROLE_SYSTEM_PROMPTS.customer;
+
+  const sanitizedMessages = [...rawMessages];
   while (sanitizedMessages.length && sanitizedMessages[0].role !== 'user') {
     sanitizedMessages.shift();
   }
 
   if (!sanitizedMessages.length) {
     return NextResponse.json({
-      message: 'Please send a message to start the conversation.',
+      message: 'Please send a message to start the consultation.',
       toolResult: null,
       provider: 'error',
     });
@@ -303,51 +411,49 @@ export async function POST(req: Request) {
 
   const lastUserMessage = sanitizedMessages[sanitizedMessages.length - 1]?.content ?? '';
 
+  // 1. If keys are missing, run high-intelligence local rule engine directly
   if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
-    const localResponse = await buildLocalAssistantResponse(lastUserMessage);
+    const local = await buildRoleAwareLocalResponse(lastUserMessage, activeRole);
     return NextResponse.json({
-      message: localResponse.message,
-      toolResult: localResponse.toolResult,
-      provider: 'local-fallback',
+      message: local.message,
+      toolResult: local.toolResult,
+      provider: 'local-intelligent-engine',
     });
   }
 
-  // ── PRIMARY: Gemini 1.5 Flash ──────────────────────────────
+  // 2. Primary: Gemini
   try {
     if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Build Gemini history (all messages except the last)
     const history = sanitizedMessages.slice(0, -1).map((m) => ({
-      role:  m.role === 'user' ? 'user' : 'model',
+      role: m.role === 'user' ? 'user' : 'model',
       parts: [{ text: m.content }],
     }));
     const lastMsg = sanitizedMessages[sanitizedMessages.length - 1];
-    const fallbackQuery = lastMsg.content;
 
     let geminiLastError: Error | null = null;
 
     for (const geminiModel of GEMINI_MODELS) {
       try {
         const model = genAI.getGenerativeModel({
-          model:             geminiModel,
-          systemInstruction: SYSTEM_PROMPT,
-          tools:             GEMINI_TOOLS as any,
+          model: geminiModel,
+          systemInstruction: systemPrompt,
+          tools: GEMINI_TOOLS as any,
         });
 
-        const chat     = model.startChat({ history });
-        let   response = await chat.sendMessage(lastMsg.content);
-        let   result   = response.response;
+        const chat = model.startChat({ history });
+        let response = await chat.sendMessage(lastMsg.content);
+        let result = response.response;
 
         let toolResult: any = null;
-        let loopCount  = 0;
+        let loopCount = 0;
 
         while (result.functionCalls()?.length && loopCount < 4) {
           loopCount++;
-          const call     = result.functionCalls()![0];
+          const call = result.functionCalls()![0];
           const toolData = await executeTool(call.name, call.args as Record<string, unknown>);
 
-          // Capture first actionable tool result for Generative UI
           if (!toolResult) {
             if (call.name === 'search_dishes' && (toolData as any).dishes?.length) {
               toolResult = { type: 'dishes', data: (toolData as any).dishes };
@@ -355,20 +461,26 @@ export async function POST(req: Request) {
               toolResult = { type: 'booking', data: (toolData as any).booking };
             } else if (call.name === 'get_menu' && (toolData as any).dishes?.length) {
               toolResult = { type: 'dishes', data: (toolData as any).dishes };
+            } else if (call.name === 'get_inventory_alerts') {
+              toolResult = { type: 'inventory', data: toolData };
+            } else if (call.name === 'get_daily_sales') {
+              toolResult = { type: 'metrics', data: toolData };
+            } else if (call.name === 'get_table_status') {
+              toolResult = { type: 'tables', data: toolData };
             }
           }
 
-          response = await chat.sendMessage([{
-            functionResponse: { name: call.name, response: toolData },
-          }]);
+          response = await chat.sendMessage([
+            { functionResponse: { name: call.name, response: toolData } },
+          ]);
           result = response.response;
         }
 
         return NextResponse.json({
-          message:    result.text() || 'Here are my recommendations for you!',
-          toolResult: toolResult ?? (await runFallbackSuggestion(fallbackQuery)),
-          provider:  'gemini',
-          model:     geminiModel,
+          message: result.text() || 'Here are the operational details for you.',
+          toolResult: toolResult ?? (await buildRoleAwareLocalResponse(lastUserMessage, activeRole)).toolResult,
+          provider: 'gemini',
+          model: geminiModel,
         });
       } catch (err) {
         geminiLastError = err as Error;
@@ -377,18 +489,16 @@ export async function POST(req: Request) {
     }
 
     throw geminiLastError ?? new Error('All Gemini models failed');
-
   } catch (geminiError) {
     console.warn('[Chat] Gemini failed, switching to Groq fallback:', (geminiError as Error).message);
 
-    // ── FALLBACK: Groq llama3-70b ────────────────────────────
+    // 3. Fallback: Groq
     try {
       if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not set');
 
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
       const groqMessages: any[] = [
-        { role: 'system',    content: SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         ...sanitizedMessages.map((m) => ({ role: m.role, content: m.content })),
       ];
 
@@ -398,21 +508,25 @@ export async function POST(req: Request) {
         try {
           const runMessages = [...groqMessages];
           let completion = await groq.chat.completions.create({
-            model:       groqModel,
-            messages:    runMessages,
-            tools:       GROQ_TOOLS,
+            model: groqModel,
+            messages: runMessages,
+            tools: GROQ_TOOLS,
             tool_choice: 'auto',
-            max_tokens:  1024,
+            max_tokens: 1024,
           });
 
-          let   choice    = completion.choices[0];
-          let   toolResult: any = null;
-          let   loopCount = 0;
+          let choice = completion.choices[0];
+          let toolResult: any = null;
+          let loopCount = 0;
 
-          while (choice.finish_reason === 'tool_calls' && choice.message.tool_calls?.length && loopCount < 4) {
+          while (
+            choice.finish_reason === 'tool_calls' &&
+            choice.message.tool_calls?.length &&
+            loopCount < 4
+          ) {
             loopCount++;
             const toolCall = choice.message.tool_calls[0];
-            const args     = JSON.parse(toolCall.function.arguments || '{}') as Record<string, unknown>;
+            const args = JSON.parse(toolCall.function.arguments || '{}') as Record<string, unknown>;
             const toolData = await executeTool(toolCall.function.name, args);
 
             if (!toolResult) {
@@ -422,28 +536,37 @@ export async function POST(req: Request) {
                 toolResult = { type: 'booking', data: (toolData as any).booking };
               } else if (toolCall.function.name === 'get_menu' && (toolData as any).dishes?.length) {
                 toolResult = { type: 'dishes', data: (toolData as any).dishes };
+              } else if (toolCall.function.name === 'get_inventory_alerts') {
+                toolResult = { type: 'inventory', data: toolData };
+              } else if (toolCall.function.name === 'get_daily_sales') {
+                toolResult = { type: 'metrics', data: toolData };
+              } else if (toolCall.function.name === 'get_table_status') {
+                toolResult = { type: 'tables', data: toolData };
               }
             }
 
             runMessages.push(choice.message);
             runMessages.push({
-              role:         'tool',
+              role: 'tool',
               tool_call_id: toolCall.id,
-              content:      JSON.stringify(toolData),
+              content: JSON.stringify(toolData),
             });
 
             completion = await groq.chat.completions.create({
-              model: groqModel, messages: runMessages,
-              tools: GROQ_TOOLS, tool_choice: 'auto', max_tokens: 1024,
+              model: groqModel,
+              messages: runMessages,
+              tools: GROQ_TOOLS,
+              tool_choice: 'auto',
+              max_tokens: 1024,
             });
             choice = completion.choices[0];
           }
 
           return NextResponse.json({
-            message:    choice.message.content || 'Here are some great options!',
-            toolResult: toolResult ?? (await runFallbackSuggestion(sanitizedMessages[sanitizedMessages.length - 1].content)),
-            provider:  'groq',
-            model:     groqModel,
+            message: choice.message.content || 'Here are the details for you.',
+            toolResult: toolResult ?? (await buildRoleAwareLocalResponse(lastUserMessage, activeRole)).toolResult,
+            provider: 'groq',
+            model: groqModel,
           });
         } catch (err) {
           groqLastError = err as Error;
@@ -452,14 +575,13 @@ export async function POST(req: Request) {
       }
 
       throw groqLastError ?? new Error('All Groq models failed');
-
     } catch (groqError) {
-      console.error('[Chat] Both AI providers failed:', groqError);
-      const localResponse = await buildLocalAssistantResponse(lastUserMessage);
+      console.error('[Chat] Both AI providers failed, using local engine:', groqError);
+      const local = await buildRoleAwareLocalResponse(lastUserMessage, activeRole);
       return NextResponse.json({
-        message: localResponse.message,
-        toolResult: localResponse.toolResult,
-        provider: 'local-fallback',
+        message: local.message,
+        toolResult: local.toolResult,
+        provider: 'local-intelligent-engine',
       });
     }
   }

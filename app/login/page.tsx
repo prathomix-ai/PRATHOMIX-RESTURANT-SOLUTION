@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,7 +24,7 @@ import {
 import Navbar from '@/components/Navbar';
 import { setClientSession, DEMO_ACCOUNTS, ROLE_REDIRECTS, type AuthUser } from '@/lib/auth';
 
-export default function UnifiedLoginPage() {
+function UnifiedLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get('redirect');
@@ -326,5 +328,18 @@ export default function UnifiedLoginPage() {
         </motion.div>
       </main>
     </>
+  );
+}
+
+export default function UnifiedLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+          <div className="w-10 h-10 border-2 border-[#C5A880]/30 border-t-[#C5A880] rounded-full animate-spin" />
+        </div>
+      }>
+      <UnifiedLoginContent />
+    </Suspense>
   );
 }

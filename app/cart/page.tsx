@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -32,7 +34,7 @@ import { getClientSession } from '@/lib/auth';
 type OrderType = 'dine_in' | 'takeaway' | 'delivery';
 type PaymentMethod = 'cash' | 'upi' | 'card';
 
-export default function CartPage() {
+function CartContent() {
   const searchParams = useSearchParams();
   const urlTable = searchParams.get('table');
 
@@ -646,5 +648,18 @@ export default function CartPage() {
         )}
       </main>
     </>
+  );
+}
+
+export default function CartPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+          <div className="w-10 h-10 border-2 border-[#C5A880]/30 border-t-[#C5A880] rounded-full animate-spin" />
+        </div>
+      }>
+      <CartContent />
+    </Suspense>
   );
 }
