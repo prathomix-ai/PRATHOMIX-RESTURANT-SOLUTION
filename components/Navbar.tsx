@@ -137,7 +137,7 @@ export default function Navbar() {
 
               {/* User Authentication Control: Logged-in Name Dropdown vs Sign In */}
               {user ? (
-                <div className="relative" ref={userMenuRef} data-tour="customer-profile">
+                <div className="relative z-50" ref={userMenuRef} data-tour="customer-profile">
                   <button
                     type="button"
                     onClick={() => setUserMenuOpen(!userMenuOpen)}

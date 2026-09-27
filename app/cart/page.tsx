@@ -831,11 +831,11 @@ function CartContent() {
                   className="w-full py-4 rounded-xl bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-sm uppercase tracking-wider shadow-warm hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                   {submitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin text-[#0A0A0A]" /> Submitting Order...
+                      <Loader2 className="w-4 h-4 animate-spin text-[#0A0A0A]" /> Placing Order...
                     </>
                   ) : orderType === 'dine_in' ? (
                     <>
-                      <Utensils className="w-4 h-4" /> Send to Kitchen
+                      Place Order <ArrowRight className="w-4 h-4" />
                     </>
                   ) : (
                     <>
