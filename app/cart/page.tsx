@@ -270,12 +270,84 @@ function CartContent() {
 
   // ── Success State ──────────────────────────────────────────────────────────
   if (confirmedOrder) {
+    const isDineIn = orderType === 'dine_in';
+
     const isAwaitingVerification =
-      liveVerificationStatus === 'PENDING_TABLE_VERIFICATION' ||
-      liveVerificationStatus === 'HOLD' ||
-      confirmedOrder.status === 'pending_verification';
+      !isDineIn && (
+        liveVerificationStatus === 'PENDING_TABLE_VERIFICATION' ||
+        liveVerificationStatus === 'HOLD' ||
+        confirmedOrder.status === 'pending_verification'
+      );
 
     const isRejected = liveVerificationStatus === 'REJECTED' || confirmedOrder.status === 'cancelled';
+
+    // ── DINE-IN: No forced payment — show "Continue Ordering" and "View Bill" ──
+    if (isDineIn && !isRejected) {
+      const sessionToken =
+        confirmedOrder.session_id ||
+        (typeof window !== 'undefined'
+          ? sessionStorage.getItem('prathomix_session_token') || localStorage.getItem('prathomix_session_token')
+          : null);
+      const billUrl = sessionToken
+        ? `/bill?session_token=${encodeURIComponent(sessionToken)}&table=${tableNumber}`
+        : `/bill?table=${tableNumber}`;
+
+      return (
+        <>
+          <Navbar />
+          <main className="min-h-screen pt-28 pb-16 flex items-center justify-center px-4 bg-[#0A0A0A] relative overflow-hidden">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#C5A880]/10 rounded-full blur-[140px] pointer-events-none" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="glass-dark rounded-3xl p-8 sm:p-12 text-center max-w-lg border border-[#C5A880]/20 shadow-2xl relative z-10">
+              <div className="w-20 h-20 rounded-full bg-[#C5A880]/10 border border-[#C5A880]/30 flex items-center justify-center mx-auto mb-6 shadow-warm">
+                <CheckCircle2 className="w-10 h-10 text-[#C5A880]" />
+              </div>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[#C5A880] font-bold mb-2">
+                Order Sent to Kitchen
+              </p>
+              <h2 className="font-display text-3xl font-bold text-[#EAE6DF] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
+                Enjoy Your Dining!
+              </h2>
+              <p className="text-xs text-[#EAE6DF]/60 mb-6 leading-relaxed">
+                Your order is being prepared. You can order more dishes anytime — everything will appear on your running bill. Pay at the end of your meal.
+              </p>
+
+              <div className="p-4 rounded-2xl bg-[#121212]/90 border border-[#C5A880]/15 mb-6 text-left space-y-2">
+                <div className="flex justify-between text-xs text-[#EAE6DF]/70">
+                  <span>Order Ref:</span>
+                  <span className="font-mono text-[#C5A880] font-bold">
+                    {confirmedOrder.order_number || `#${String(confirmedOrder.id).slice(0, 8).toUpperCase()}`}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-[#EAE6DF]/70">
+                  <span>Table:</span>
+                  <span className="text-[#EAE6DF] font-bold">Table {tableNumber}</span>
+                </div>
+                <div className="flex justify-between text-xs text-[#EAE6DF]/70 border-t border-[#C5A880]/10 pt-2 mt-2">
+                  <span>This Order:</span>
+                  <span className="text-[#C5A880] font-bold text-sm">₹{grandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  href="/menu"
+                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-warm hover:brightness-110 transition-all">
+                  Continue Ordering <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  href={billUrl}
+                  className="inline-flex items-center justify-center gap-2 bg-[#121212] border border-[#C5A880]/30 hover:border-[#C5A880] text-[#C5A880] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl transition-all">
+                  <Receipt className="w-4 h-4" /> View Running Bill
+                </Link>
+              </div>
+            </motion.div>
+          </main>
+        </>
+      );
+    }
 
     return (
       <>
@@ -299,7 +371,7 @@ function CartContent() {
                   Please Speak to Your Server
                 </h2>
                 <p className="text-xs text-[#EAE6DF]/70 mb-6">
-                  This dine-in order could not be verified for Table {tableNumber}. A server will assist you shortly.
+                  This order could not be verified. A server will assist you shortly.
                 </p>
               </>
             ) : isAwaitingVerification ? (
@@ -315,10 +387,10 @@ function CartContent() {
                 </h2>
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium mb-5">
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
-                  Server confirming Table {tableNumber}
+                  Confirming your order…
                 </div>
                 <p className="text-xs text-[#EAE6DF]/70 mb-6 leading-relaxed">
-                  To protect your dining experience, our team confirms guests at their table before food preparation begins. Your order will be sent to the kitchen immediately upon confirmation.
+                  Your order will be processed shortly.
                 </p>
               </>
             ) : (
@@ -327,13 +399,15 @@ function CartContent() {
                   <CheckCircle2 className="w-10 h-10 text-[#C5A880]" />
                 </div>
                 <p className="text-[10px] uppercase tracking-[0.3em] text-[#C5A880] font-bold mb-2">
-                  Table Confirmed
+                  Order Confirmed
                 </p>
                 <h2 className="font-display text-3xl font-bold text-[#EAE6DF] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
-                  Sent to Kitchen
+                  {orderType === 'takeaway' ? 'Pickup Soon!' : 'On Its Way!'}
                 </h2>
                 <p className="text-xs text-[#EAE6DF]/70 mb-6">
-                  Our culinary team is preparing your gourmet order. Real-time status updates are live on the kitchen display.
+                  {orderType === 'takeaway'
+                    ? 'Your takeaway order is being prepared. Please collect from the counter.'
+                    : 'Your delivery order has been placed. Our team will contact you shortly.'}
                 </p>
               </>
             )}
@@ -346,33 +420,26 @@ function CartContent() {
                 </span>
               </div>
               <div className="flex justify-between text-xs text-[#EAE6DF]/70">
-                <span>Service Channel:</span>
+                <span>Service:</span>
                 <span className="capitalize text-[#EAE6DF] font-semibold">{orderType.replace('_', ' ')}</span>
               </div>
-              {orderType === 'dine_in' && (
-                <div className="flex justify-between text-xs text-[#EAE6DF]/70">
-                  <span>Table Number:</span>
-                  <span className="text-[#EAE6DF] font-bold">Table {tableNumber}</span>
-                </div>
-              )}
               <div className="flex justify-between text-xs text-[#EAE6DF]/70 border-t border-[#C5A880]/10 pt-2 mt-2">
-                <span>Total Amount:</span>
+                <span>Total:</span>
                 <span className="text-[#C5A880] font-bold text-sm">₹{grandTotal.toFixed(2)}</span>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                href="/menu"
-                className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-warm hover:brightness-110 transition-all">
-                Browse More Dishes <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
+            <Link
+              href="/menu"
+              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-warm hover:brightness-110 transition-all">
+              Browse More <ArrowRight className="w-4 h-4" />
+            </Link>
           </motion.div>
         </main>
       </>
     );
   }
+
 
   return (
     <>
@@ -681,7 +748,8 @@ function CartContent() {
                   {couponError && <p className="text-[11px] text-rose-400 mt-1">{couponError}</p>}
                 </div>
 
-                {/* Payment Method Selector */}
+                {/* Payment Method Selector — only for delivery/takeaway */}
+                {orderType !== 'dine_in' && (
                 <div>
                   <label className="text-[11px] font-semibold text-[#EAE6DF]/80 uppercase tracking-wider mb-1.5 block">
                     Payment Option
@@ -707,6 +775,17 @@ function CartContent() {
                     ))}
                   </div>
                 </div>
+                )}
+
+                {/* Dine-in: pay at end of meal notice */}
+                {orderType === 'dine_in' && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-[#C5A880]/6 border border-[#C5A880]/15">
+                    <Receipt className="w-3.5 h-3.5 text-[#C5A880] flex-shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-[#EAE6DF]/60 leading-relaxed">
+                      Dine-In orders are added to your <span className="text-[#C5A880] font-semibold">running bill</span>. Payment happens when you're ready to leave.
+                    </p>
+                  </div>
+                )}
 
                 {/* Price Breakdown */}
                 <div className="space-y-2 pt-2 border-t border-[#C5A880]/15 text-xs text-[#EAE6DF]/70">
@@ -754,9 +833,13 @@ function CartContent() {
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-[#0A0A0A]" /> Submitting Order...
                     </>
+                  ) : orderType === 'dine_in' ? (
+                    <>
+                      <Utensils className="w-4 h-4" /> Send to Kitchen
+                    </>
                   ) : (
                     <>
-                      Confirm & Send Order <ArrowRight className="w-4 h-4" />
+                      Confirm &amp; Pay <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </button>
