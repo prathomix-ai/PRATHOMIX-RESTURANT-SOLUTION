@@ -284,17 +284,26 @@ body::after {
   animation: shineSweep 1.5s var(--ease-out-expo) forwards;
 }
 
-/* Chat bubble styling (Light Luxury Warm) */
+/* Chat bubble styling (Dark Luxury — matches PRATHOMIX theme) */
 .chat-user {
-  background: linear-gradient(135deg, #8C7355 0%, #6E5940 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #C5A880 0%, #8C7355 100%);
+  color: #0A0A0A;
+  box-shadow: 0 4px 16px rgba(197, 168, 128, 0.2);
 }
 .chat-ai {
-  background: #FFFFFF;
-  border: 1px solid #EAE6DF;
-  color: #1F2937;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(197, 168, 128, 0.15);
+  color: #EAE6DF;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
+
+/* Chatbot panel scrollbar */
+.chat-scroll::-webkit-scrollbar { width: 4px; }
+.chat-scroll::-webkit-scrollbar-track { background: transparent; }
+.chat-scroll::-webkit-scrollbar-thumb { background: rgba(197, 168, 128, 0.2); border-radius: 4px; }
+.chat-scroll::-webkit-scrollbar-thumb:hover { background: rgba(197, 168, 128, 0.45); }
 
 .mic-active { animation: elegantPulse 1.2s ease-in-out infinite; }
 
