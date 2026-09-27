@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { supabase, RESTAURANT_TABLES, DEFAULT_RESTAURANT_ID } from '@/lib/supabase';
 import { markSessionAsTrusted } from '@/lib/tableSession';
 
 // Map of valid staff roles that can verify or override dine-in orders
-const AUTHORIZED_ROLES = ['waiter', 'reception', 'manager', 'admin', 'owner'];
+const AUTHORIZED_ROLES = ['waiter', 'reception', 'receptionist', 'manager', 'admin', 'owner'];
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
       action, // 'confirm' | 'reject' | 'hold'
       reason = '',
       staff_name = 'Staff Member',
-      staff_role = 'waiter',
+      staff_role,
       staff_id,
     } = body;
 
@@ -26,8 +27,20 @@ export async function POST(req: Request) {
     }
 
     // Role verification: check cookie or provided staff role
-    const effectiveRole = staff_role?.toLowerCase() || 'waiter';
-    if (!AUTHORIZED_ROLES.includes(effectiveRole)) {
+    const cookieStore = cookies();
+    const staffRoleCookie = cookieStore.get('prathomix_staff_role')?.value;
+    const sessionCookie = cookieStore.get('prathomix_user_session')?.value;
+
+    let cookieRole = staffRoleCookie?.toLowerCase() || '';
+    if (!cookieRole && sessionCookie) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(sessionCookie));
+        if (parsed?.role) cookieRole = parsed.role.toLowerCase();
+      } catch {}
+    }
+
+    const effectiveRole = cookieRole || staff_role?.toLowerCase() || '';
+    if (!effectiveRole || !AUTHORIZED_ROLES.includes(effectiveRole)) {
       return NextResponse.json({ error: 'Unauthorized: Staff credentials required to verify orders' }, { status: 403 });
     }
 

@@ -37,7 +37,7 @@ VALUES (
   'PRATHOMIX Flagship Luxury Lounge',
   'prathomix-flagship',
   '+91 98765 43210',
-  'concierge@prathomix.com',
+  'concierge@prathomix.tech',
   'Level 42, Sky Tower, Financial District',
   'Mumbai',
   'Modern Luxury Gastronomy'
@@ -167,6 +167,7 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_ready_at timestamptz;
 
 CREATE INDEX IF NOT EXISTS idx_orders_restaurant_status ON orders(restaurant_id, status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_restaurant_created_at ON orders(restaurant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_table ON orders(restaurant_id, table_number);
 
 -- ── 7. Upgraded Bookings Schema ───────────────────────────────────────────────

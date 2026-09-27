@@ -74,15 +74,23 @@ function CartContent() {
 
     if (!isPending) return;
 
+    let isMounted = true;
     const interval = setInterval(async () => {
+      // Don't poll if browser tab is backgrounded
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
       try {
-        const res = await fetch(`/api/orders?table=${tableNumber}`);
-        if (!res.ok) return;
+        const queryParam = confirmedOrder.id
+          ? `id=${encodeURIComponent(confirmedOrder.id)}`
+          : `table=${encodeURIComponent(tableNumber)}`;
+        const res = await fetch(`/api/orders?${queryParam}`);
+        if (!res.ok || !isMounted) return;
         const list = await res.json();
-        const current = list.find(
-          (o: any) => o.id === confirmedOrder.id || o.order_number === confirmedOrder.order_number
-        );
-        if (current) {
+        const current = Array.isArray(list)
+          ? list.find((o: any) => o.id === confirmedOrder.id || o.order_number === confirmedOrder.order_number) || list[0]
+          : list;
+
+        if (current && isMounted) {
           if (
             current.status === 'placed' ||
             current.status === 'preparing' ||
@@ -96,9 +104,12 @@ function CartContent() {
           }
         }
       } catch {}
-    }, 3000);
+    }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [confirmedOrder, tableNumber]);
 
   // Auto-fill from authenticated user profile if logged in
@@ -153,6 +164,7 @@ function CartContent() {
   }
 
   async function handlePlaceOrder() {
+    if (submitting) return;
     setOrderError('');
 
     if (items.length === 0) {
@@ -365,15 +377,15 @@ function CartContent() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen pt-28 pb-20 px-4 max-w-6xl mx-auto bg-[#0A0A0A] text-[#EAE6DF]">
+      <main className="min-h-screen pt-24 sm:pt-28 pb-20 px-3 sm:px-6 max-w-6xl mx-auto bg-[#0A0A0A] text-[#EAE6DF] pb-safe">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-6 sm:mb-8">
           <div className="w-10 h-10 rounded-xl bg-[#C5A880]/10 border border-[#C5A880]/20 flex items-center justify-center">
             <ShoppingCart className="w-5 h-5 text-[#C5A880]" />
           </div>
           <div>
             <h1
-              className="font-display text-3xl font-bold tracking-wide text-[#EAE6DF]"
+              className="font-display text-2xl sm:text-3xl font-bold tracking-wide text-[#EAE6DF]"
               style={{ fontFamily: 'Cinzel, serif' }}>
               Your Dining Cart
             </h1>
@@ -384,9 +396,9 @@ function CartContent() {
         </div>
 
         {items.length === 0 ? (
-          <div className="text-center py-28 glass-dark rounded-3xl border border-[#C5A880]/15">
-            <ShoppingCart className="w-16 h-16 text-[#C5A880]/30 mx-auto mb-4" />
-            <h3 className="font-display text-xl font-bold text-[#EAE6DF] mb-2" style={{ fontFamily: 'Cinzel, serif' }}>
+          <div className="text-center py-20 sm:py-28 glass-dark rounded-3xl border border-[#C5A880]/15 p-4">
+            <ShoppingCart className="w-14 h-14 sm:w-16 sm:h-16 text-[#C5A880]/30 mx-auto mb-4" />
+            <h3 className="font-display text-lg sm:text-xl font-bold text-[#EAE6DF] mb-2" style={{ fontFamily: 'Cinzel, serif' }}>
               Your cart is empty
             </h3>
             <p className="text-xs text-[#EAE6DF]/60 mb-6 max-w-sm mx-auto">
@@ -394,16 +406,16 @@ function CartContent() {
             </p>
             <Link
               href="/menu"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl shadow-warm hover:brightness-110 transition-all">
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-6 py-3 min-h-[44px] rounded-xl shadow-warm hover:brightness-110 transition-all">
               Explore Menu <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-12 gap-8 items-start">
+          <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             {/* Left Items Column */}
             <div className="lg:col-span-7 space-y-4">
               {/* Order Mode Switcher */}
-              <div className="glass-dark rounded-2xl border border-[#C5A880]/20 p-2 grid grid-cols-3 gap-2">
+              <div className="glass-dark rounded-2xl border border-[#C5A880]/20 p-1 sm:p-2 grid grid-cols-3 gap-1 sm:gap-2">
                 {[
                   { id: 'dine_in', label: 'Dine-In', icon: Utensils },
                   { id: 'takeaway', label: 'Takeaway', icon: ShoppingBag },
@@ -416,13 +428,13 @@ function CartContent() {
                       setOrderType(channel.id as OrderType);
                       setOrderError('');
                     }}
-                    className={`py-3 px-2 rounded-xl text-xs font-semibold tracking-wider transition-all duration-300 flex flex-col sm:flex-row items-center justify-center gap-2 ${
+                    className={`py-2.5 px-1 sm:py-3 sm:px-2 rounded-xl text-[10px] sm:text-xs font-semibold tracking-tight sm:tracking-wider leading-tight transition-all duration-300 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[44px] ${
                       orderType === channel.id
                         ? 'bg-[#C5A880] text-[#0A0A0A] shadow-md font-bold'
                         : 'text-[#EAE6DF]/70 hover:text-[#EAE6DF] hover:bg-[#121212]'
                     }`}>
-                    <channel.icon className="w-4 h-4" />
-                    <span>{channel.label}</span>
+                    <channel.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="text-center">{channel.label}</span>
                   </button>
                 ))}
               </div>
@@ -430,58 +442,93 @@ function CartContent() {
               {/* Items List */}
               <div className="space-y-3">
                 <AnimatePresence>
-                  {items.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      layout
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      className="glass-dark border border-[#C5A880]/15 hover:border-[#C5A880]/30 rounded-2xl p-4 flex gap-4 items-center transition-all">
-                      <div className="relative w-18 h-18 rounded-xl overflow-hidden flex-shrink-0 border border-[#C5A880]/10">
-                        <Image
-                          src={item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}
-                          alt={item.name}
-                          width={72}
-                          height={72}
-                          className="object-cover w-full h-full"
-                        />
-                      </div>
+                  {items.map((item) => {
+                    const itemSubtotal = item.price * item.qty;
+                    const modifierBadge =
+                      item.protein >= 30
+                        ? 'High Protein (30g+)'
+                        : item.calories < 300
+                          ? 'Low Calorie (<300 cal)'
+                          : 'Artisanal Preparation';
 
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm text-[#EAE6DF] truncate">{item.name}</h4>
-                        <p className="text-xs text-[#C5A880] mt-0.5 font-medium">₹{item.price} each</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <button
-                            type="button"
-                            onClick={() => updateQty(item.id, item.qty - 1)}
-                            className="w-7 h-7 rounded-lg bg-[#121212] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF] transition-colors">
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="text-sm font-bold w-6 text-center text-[#EAE6DF]">{item.qty}</span>
-                          <button
-                            type="button"
-                            onClick={() => updateQty(item.id, item.qty + 1)}
-                            className="w-7 h-7 rounded-lg bg-[#121212] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF] transition-colors">
-                            <Plus className="w-3 h-3" />
-                          </button>
+                    return (
+                      <motion.div
+                        key={item.id}
+                        layout
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="glass-dark border border-[#C5A880]/15 hover:border-[#C5A880]/30 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center transition-all">
+                        
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {/* Product Image */}
+                          <div className="relative w-16 h-16 sm:w-18 sm:h-18 rounded-xl overflow-hidden flex-shrink-0 border border-[#C5A880]/15 bg-[#121212]">
+                            <Image
+                              src={item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}
+                              alt={item.name}
+                              width={72}
+                              height={72}
+                              className="object-cover w-full h-full"
+                            />
+                          </div>
+
+                          {/* Product Name & Modifiers */}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm sm:text-base text-[#EAE6DF] truncate">{item.name}</h4>
+                            <p className="text-[10px] text-[#C5A880] font-semibold tracking-wide uppercase mt-0.5">
+                              {modifierBadge}
+                            </p>
+                            
+                            {/* Unit Price & Formula Breakdown: ₹280 × 2 = ₹560 */}
+                            <p className="text-xs text-[#EAE6DF]/70 mt-1 font-mono">
+                              ₹{item.price} × {item.qty} ={' '}
+                              <span className="text-[#C5A880] font-bold font-sans text-sm">
+                                ₹{itemSubtotal.toFixed(2)}
+                              </span>
+                            </p>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                        <span className="text-[#C5A880] font-bold text-base">
-                          ₹{(item.price * item.qty).toFixed(2)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.id)}
-                          className="text-[#EAE6DF]/40 hover:text-rose-400 transition-colors p-1"
-                          title="Remove item">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
+                        {/* Controls & Subtotal Row (Mobile: flex row, Desktop: side-by-side) */}
+                        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#C5A880]/10 flex-shrink-0">
+                          {/* Quantity Controls */}
+                          <div className="inline-flex items-center bg-[#121212] border border-[#C5A880]/30 rounded-full p-0.5 shadow-sm">
+                            <button
+                              type="button"
+                              onClick={() => updateQty(item.id, item.qty - 1)}
+                              aria-label={`Decrease quantity of ${item.name}`}
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-[#C5A880] hover:bg-[#C5A880] hover:text-[#0A0A0A] transition-colors active:scale-90">
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs sm:text-sm font-bold w-7 text-center text-[#EAE6DF] select-none">
+                              {item.qty}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQty(item.id, item.qty + 1)}
+                              aria-label={`Increase quantity of ${item.name}`}
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-[#C5A880] hover:bg-[#C5A880] hover:text-[#0A0A0A] transition-colors active:scale-90">
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span className="text-[#C5A880] font-bold text-sm sm:text-base hidden sm:inline-block">
+                              ₹{itemSubtotal.toFixed(2)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeItem(item.id)}
+                              className="text-[#EAE6DF]/40 hover:text-rose-400 transition-colors p-2 rounded-lg hover:bg-rose-500/10"
+                              title="Remove item"
+                              aria-label={`Remove ${item.name} from cart`}>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </div>
 

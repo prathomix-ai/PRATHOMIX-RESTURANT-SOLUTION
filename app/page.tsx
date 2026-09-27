@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar';
 import HeroSection from '@/components/HeroSection';
 import FeaturedMenu from '@/components/FeaturedMenu';
 import BookingBanner from '@/components/BookingBanner';
+import RoleOnboardingTutorial from '@/components/RoleOnboardingTutorial';
 
 const ChatInterface = dynamic(() => import('@/components/ChatInterface'), {
   ssr: false,
@@ -14,6 +15,7 @@ export default function HomePage() {
   return (
     <>
       <Navbar />
+      <RoleOnboardingTutorial role="customer" />
       <main>
         <HeroSection />
         <Suspense

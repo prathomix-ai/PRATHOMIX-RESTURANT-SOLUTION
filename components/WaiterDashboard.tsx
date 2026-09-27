@@ -30,9 +30,13 @@ import {
   AlertTriangle,
   UserCheck,
   UserX,
+  Settings,
 } from 'lucide-react';
 import { supabase, RESTAURANT_TABLES, DEFAULT_RESTAURANT_ID, type Dish, type Order } from '@/lib/supabase';
 import { clearClientSession } from '@/lib/auth';
+import RoleOnboardingTutorial from './RoleOnboardingTutorial';
+import StaffSettingsModal from './StaffSettingsModal';
+import StaffPresenceHeartbeat from './StaffPresenceHeartbeat';
 
 const MODIFIERS_LIST = [
   'Extra Spicy 🌶️',
@@ -56,6 +60,7 @@ export default function WaiterDashboard() {
   const [activeTab, setActiveTab] = useState<'tables' | 'pos' | 'kots' | 'verify' | 'ready'>('tables');
   const [waiterName, setWaiterName] = useState('Marco Vance');
   const [waiterId, setWaiterId] = useState('W-1001');
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Verification state
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
@@ -94,14 +99,44 @@ export default function WaiterDashboard() {
     }
   }, []);
 
-  // Fetch initial data
+  // Fetch running orders only (for fast realtime updates without refetching static menu)
+  const fetchOrdersOnly = useCallback(async () => {
+    try {
+      const restId = typeof window !== 'undefined'
+        ? localStorage.getItem('prathomix_restaurant_id') || '10000000-0000-0000-0000-000000000001'
+        : '10000000-0000-0000-0000-000000000001';
+
+      let query = supabase
+        .from(RESTAURANT_TABLES.orders)
+        .select('id, restaurant_id, order_number, table_number, dish_names, items_detail, total_amount, status, verification_status, priority, ready_at, notes, special_instructions, waiter_id, waiter_name, created_at')
+        .in('status', ['pending_verification', 'placed', 'preparing', 'ready', 'served'])
+        .order('created_at', { ascending: false });
+
+      if (restId) {
+        query = query.or(`restaurant_id.eq.${restId},restaurant_id.is.null`);
+      }
+
+      const { data: orderData } = await query;
+      if (orderData) {
+        setOrders(orderData as any);
+      }
+    } catch (err) {
+      console.error('Waiter fetch orders error:', err);
+    }
+  }, []);
+
+  // Fetch initial full data (tables, dishes, orders)
   const fetchData = useCallback(async () => {
     setRefreshing(true);
     try {
+      const restId = typeof window !== 'undefined'
+        ? localStorage.getItem('prathomix_restaurant_id') || '10000000-0000-0000-0000-000000000001'
+        : '10000000-0000-0000-0000-000000000001';
+
       // 1. Fetch tables
       const { data: tableData } = await supabase
         .from(RESTAURANT_TABLES.restaurantTables)
-        .select('*')
+        .select('id, table_number, capacity, section, status')
         .order('table_number', { ascending: true });
 
       if (tableData && tableData.length > 0) {
@@ -118,55 +153,59 @@ export default function WaiterDashboard() {
         );
       }
 
-      // 2. Fetch dishes
+      // 2. Fetch dishes (cached catalog)
       const { data: dishData } = await supabase
         .from(RESTAURANT_TABLES.dishes)
-        .select('*')
+        .select('id, name, price, category, veg_type, calories, protein, available, image_url')
         .eq('available', true);
 
       if (dishData && dishData.length > 0) {
-        setDishes(dishData);
+        setDishes(dishData as Dish[]);
       }
 
-      // 3. Fetch running orders (including pending table verifications)
-      const { data: orderData } = await supabase
-        .from(RESTAURANT_TABLES.orders)
-        .select('*')
-        .in('status', ['pending_verification', 'placed', 'preparing', 'ready', 'served'])
-        .order('created_at', { ascending: false });
-
-      if (orderData) {
-        setOrders(orderData as any);
-      }
+      // 3. Fetch running orders
+      await fetchOrdersOnly();
     } catch (err) {
       console.error('Waiter fetch error:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchOrdersOnly]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // Gentle 30-second fallback sync
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      fetchOrdersOnly();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchData, fetchOrdersOnly]);
 
-  // Real-time listener for order updates
+  // Real-time listener for order updates with debouncing
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+
     const channel = supabase
       .channel('waiter-orders-sync')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: RESTAURANT_TABLES.orders },
         () => {
-          fetchData();
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            fetchOrdersOnly();
+          }, 350);
         }
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [fetchData]);
+  }, [fetchOrdersOnly]);
 
   // Categories
   const categories = useMemo(() => {
@@ -233,7 +272,7 @@ export default function WaiterDashboard() {
 
   // Send KOT to Kitchen
   async function handleSendKOT() {
-    if (currentTicket.length === 0) return;
+    if (currentTicket.length === 0 || submittingKOT) return;
     setSubmittingKOT(true);
     setFeedbackMsg('');
 
@@ -266,6 +305,7 @@ export default function WaiterDashboard() {
         status: 'placed',
         payment_status: 'pending',
         notes: `KOT by ${waiterName}`,
+        idempotency_key: `kot_${waiterId}_${selectedTable}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       };
 
       const res = await fetch('/api/orders', {
@@ -421,7 +461,9 @@ export default function WaiterDashboard() {
   return (
     <main className="min-h-screen bg-[#0A0A0A] text-[#EAE6DF] pb-20">
       {/* Top Staff Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-xl border-b border-[#C5A880]/20 px-4 py-3.5 shadow-xl">
+      <header
+        data-tour="waiter-dashboard"
+        className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-xl border-b border-[#C5A880]/20 px-4 py-3.5 shadow-xl">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#C5A880]/15 border border-[#C5A880]/30 flex items-center justify-center text-[#C5A880]">
@@ -451,6 +493,12 @@ export default function WaiterDashboard() {
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[#C5A880]' : ''}`} />
             </button>
             <button
+              onClick={() => setSettingsOpen(true)}
+              title="Waiter Station Settings & Tutorial"
+              className="w-9 h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
+              <Settings className="w-4 h-4" />
+            </button>
+            <button
               onClick={handleLogout}
               title="Logout"
               className="w-9 h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-rose-500/50 flex items-center justify-center text-[#EAE6DF]/70 hover:text-rose-400 transition-all">
@@ -459,6 +507,17 @@ export default function WaiterDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Role Onboarding Tutorial & Staff Settings Modal */}
+      <RoleOnboardingTutorial role="waiter" userId={waiterId} userName={waiterName} />
+      <StaffSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        role="waiter"
+        staffName={waiterName}
+        staffId={waiterId}
+      />
+      <StaffPresenceHeartbeat role="waiter" userId={waiterId} userName={waiterName} />
 
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 pt-4">
@@ -523,12 +582,13 @@ export default function WaiterDashboard() {
           </motion.div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-1.5 rounded-2xl bg-[#121212] border border-[#C5A880]/15 mb-6">
+        {/* Navigation Tabs — Horizontal scroll on mobile, 5 cols on tablet/desktop */}
+        <div className="flex overflow-x-auto sm:grid sm:grid-cols-5 gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-[#121212] border border-[#C5A880]/15 mb-6 scrollbar-none">
           {[
-            { id: 'tables', label: 'Floor Tables', icon: Layers, badge: tableSummary.occupied },
+            { id: 'tables', tour: 'waiter-tables', label: 'Floor Tables', icon: Layers, badge: tableSummary.occupied },
             {
               id: 'ready',
+              tour: 'waiter-ready-queue',
               label: 'Ready to Serve',
               icon: Clock3,
               badge: readyOrders.filter((o) => o.status === 'ready').length || null,
@@ -536,25 +596,27 @@ export default function WaiterDashboard() {
             },
             {
               id: 'verify',
+              tour: 'waiter-verify',
               label: 'Verify Orders',
               icon: ShieldCheck,
               badge: pendingVerifications.length || null,
               alert: pendingVerifications.length > 0,
             },
-            { id: 'pos', label: 'Take Order', icon: Utensils, badge: currentTicket.length || null },
-            { id: 'kots', label: 'Active KOTs', icon: BellRing, badge: activeKOTOrders.length || null },
+            { id: 'pos', tour: 'waiter-take-order', label: 'Take Order', icon: Utensils, badge: currentTicket.length || null },
+            { id: 'kots', tour: 'waiter-orders', label: 'Active KOTs', icon: BellRing, badge: activeKOTOrders.length || null },
           ].map((tab) => (
             <button
               key={tab.id}
+              data-tour={tab.tour}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 ${
+              className={`py-2.5 sm:py-3 px-3 sm:px-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] flex-shrink-0 whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] shadow-md'
                   : tab.alert
                   ? 'text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20'
                   : 'text-[#EAE6DF]/70 hover:text-[#EAE6DF] hover:bg-[#1A1A1A]'
               }`}>
-              <tab.icon className="w-4 h-4" />
+              <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
               <span>{tab.label}</span>
               {tab.badge != null && tab.badge > 0 && (
                 <span
@@ -667,7 +729,7 @@ export default function WaiterDashboard() {
                   </select>
                 </div>
 
-                <div className="relative flex-1 min-w-[200px]">
+                <div className="relative flex-1 min-w-[150px] xs:min-w-[200px]">
                   <Search className="w-4 h-4 text-[#C5A880]/60 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"

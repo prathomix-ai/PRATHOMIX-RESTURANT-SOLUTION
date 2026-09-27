@@ -33,6 +33,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid booking status.' }, { status: 400 });
   }
 
+  // ── Double-Booking Prevention ──────────────────────────────────────────
+  if (assignedTableNumber && bookingStatus !== 'cancelled') {
+    const { data: existingBooking } = await supabase
+      .from(RESTAURANT_TABLES.bookings)
+      .select('id, customer_name, time')
+      .eq('date', date)
+      .eq('time', time)
+      .eq('table_number', assignedTableNumber)
+      .in('status', ['reserved', 'confirmed', 'seated', 'pending'])
+      .maybeSingle();
+
+    if (existingBooking) {
+      return NextResponse.json(
+        {
+          error: `Table ${assignedTableNumber} is already booked for ${time} on ${date} by ${existingBooking.customer_name || 'another guest'}. Please select another table or time.`,
+          code: 'TABLE_ALREADY_BOOKED',
+          conflicting_booking_id: existingBooking.id,
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from(RESTAURANT_TABLES.bookings)
     .insert({

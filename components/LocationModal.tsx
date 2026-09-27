@@ -67,58 +67,60 @@ export default function LocationModal({ isOpen, onClose }: Props) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm"
           onClick={onClose}>
           <motion.div
-            initial={{ scale: 0.9, y: 20 }}
+            initial={{ scale: 0.94, y: 16 }}
             animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.9, y: 20 }}
-            className="glass border border-warm-200 rounded-2xl p-6 w-full max-w-md relative shadow-warm-lg"
+            exit={{ scale: 0.94, y: 16 }}
+            className="glass-dark border border-[#C5A880]/20 rounded-2xl sm:rounded-3xl p-5 sm:p-6 w-full max-w-md relative shadow-2xl max-h-[90dvh] overflow-y-auto text-[#EAE6DF]"
             onClick={(e) => e.stopPropagation()}>
 
             <button
+              type="button"
               onClick={onClose}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors">
+              aria-label="Close location modal"
+              className="absolute top-3.5 right-3.5 w-9 h-9 rounded-full flex items-center justify-center text-[#EAE6DF]/60 hover:text-[#C5A880] hover:bg-[#C5A880]/10 transition-colors">
               <X className="w-5 h-5" />
             </button>
 
             <h2
-              className="font-display text-xl font-semibold gradient-text mb-6 flex items-center gap-2"
+              className="font-display text-lg sm:text-xl font-semibold text-[#EAE6DF] mb-5 sm:mb-6 flex items-center gap-2"
               style={{ fontFamily: 'Cinzel, serif' }}>
-              <MapPin className="w-5 h-5 text-primary-600" />
+              <MapPin className="w-5 h-5 text-[#C5A880]" />
               Find Us
             </h2>
 
             {/* Restaurant Card */}
-            <div className="glass-dark rounded-xl p-4 mb-3 border border-primary-600/15">
+            <div className="glass-dark rounded-xl p-3.5 sm:p-4 mb-3 border border-[#C5A880]/20">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-2 h-2 rounded-full bg-primary-600 animate-pulse" />
-                <span className="text-[10px] text-primary-600 font-semibold uppercase tracking-widest">Restaurant</span>
+                <div className="w-2 h-2 rounded-full bg-[#C5A880] animate-pulse" />
+                <span className="text-[10px] text-[#C5A880] font-semibold uppercase tracking-widest">Restaurant</span>
               </div>
-              <p className="text-sm font-semibold text-gray-900">{RESTAURANT.name}</p>
-              <p className="text-xs text-gray-600 mt-0.5">{RESTAURANT.address}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Open: 12:00 PM – 11:00 PM, Daily</p>
+              <p className="text-sm font-semibold text-[#EAE6DF]">{RESTAURANT.name}</p>
+              <p className="text-xs text-[#EAE6DF]/70 mt-0.5">{RESTAURANT.address}</p>
+              <p className="text-xs text-[#EAE6DF]/50 mt-0.5">Open: 12:00 PM – 11:00 PM, Daily</p>
             </div>
 
             {/* User Location Card */}
-            <div className="glass-dark rounded-xl p-4 mb-5 border border-warm-200/40">
+            <div className="glass-dark rounded-xl p-3.5 sm:p-4 mb-4 border border-[#C5A880]/15">
               <div className="flex items-center gap-2 mb-1">
-                <Navigation className="w-3 h-3 text-accent-green" />
-                <span className="text-[10px] text-accent-green font-semibold uppercase tracking-widest">Your Location</span>
+                <Navigation className="w-3 h-3 text-emerald-400" />
+                <span className="text-[10px] text-emerald-400 font-semibold uppercase tracking-widest">Your Location</span>
               </div>
               {loading && (
-                <div className="flex items-center gap-2 text-gray-600 text-sm">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Detecting…
+                <div className="flex items-center gap-2 text-[#EAE6DF]/70 text-xs sm:text-sm">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C5A880]" /> Detecting…
                 </div>
               )}
               {locError && (
-                <div className="flex items-start gap-2 text-accent-red text-xs">
+                <div className="flex items-start gap-2 text-rose-400 text-xs">
                   <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                   <span>{locError}</span>
                 </div>
               )}
               {userLoc && !loading && (
-                <p className="text-sm text-stone-900 font-medium">
+                <p className="text-xs sm:text-sm text-[#EAE6DF] font-medium font-mono">
                   {userLoc.lat.toFixed(4)}°N, {userLoc.lng.toFixed(4)}°E
                 </p>
               )}
@@ -129,17 +131,17 @@ export default function LocationModal({ isOpen, onClose }: Props) {
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-2 gap-3 mb-4">
-                <div className="glass rounded-xl p-4 text-center border border-primary-600/15">
-                  <p className="text-2xl font-bold text-primary-600">{distance.toFixed(1)}</p>
-                  <p className="text-xs text-stone-600 mt-0.5">km away</p>
+                className="grid grid-cols-2 gap-2.5 mb-4">
+                <div className="glass-dark rounded-xl p-3 sm:p-4 text-center border border-[#C5A880]/20">
+                  <p className="text-xl sm:text-2xl font-bold text-[#C5A880]">{distance.toFixed(1)}</p>
+                  <p className="text-[11px] text-[#EAE6DF]/60 mt-0.5">km away</p>
                 </div>
-                <div className="glass rounded-xl p-4 text-center border border-warm-200/40">
+                <div className="glass-dark rounded-xl p-3 sm:p-4 text-center border border-[#C5A880]/20">
                   <div className="flex items-center justify-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-stone-600" />
-                    <p className="text-2xl font-bold text-stone-900">{eta}</p>
+                    <Clock className="w-3.5 h-3.5 text-[#C5A880]" />
+                    <p className="text-xl sm:text-2xl font-bold text-[#EAE6DF]">{eta}</p>
                   </div>
-                  <p className="text-xs text-stone-600 mt-0.5">min drive est.</p>
+                  <p className="text-[11px] text-[#EAE6DF]/60 mt-0.5">min drive est.</p>
                 </div>
               </motion.div>
             )}
@@ -148,12 +150,11 @@ export default function LocationModal({ isOpen, onClose }: Props) {
               href={`https://maps.google.com/?q=${RESTAURANT.lat},${RESTAURANT.lng}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
-                         bg-primary-600/10 hover:bg-primary-600/20 border border-primary-600/25
-                         hover:border-primary-400/60 text-primary-600 text-sm font-medium
-                         transition-all duration-200 hover:shadow-warm">
-              <MapPin className="w-4 h-4" />
-              Open in Google Maps
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl
+                         bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider
+                         transition-all duration-200 hover:brightness-110 shadow-warm">
+              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <span>Open in Google Maps</span>
             </a>
           </motion.div>
         </motion.div>

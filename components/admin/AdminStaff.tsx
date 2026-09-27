@@ -21,6 +21,7 @@ import {
   CalendarCheck,
 } from 'lucide-react';
 import { supabase, RESTAURANT_TABLES, DEFAULT_RESTAURANT_ID, type UserRole, type StaffProfile } from '@/lib/supabase';
+import StaffPresenceView from './StaffPresenceView';
 
 interface StaffMember {
   id: string;
@@ -44,7 +45,7 @@ const INITIAL_STAFF: StaffMember[] = [
     employee_code: 'ADM-01',
     passcode: 'prathomix2024',
     phone: '+91 98200 11001',
-    email: 'owner@prathomix.com',
+    email: 'owner@prathomix.tech',
     salary: 250000,
     status: 'active',
     shift: 'Morning',
@@ -70,7 +71,7 @@ const INITIAL_STAFF: StaffMember[] = [
     employee_code: 'CHF-01',
     passcode: 'kitchen2026',
     phone: '+91 98300 33003',
-    email: 'chef@prathomix.com',
+    email: 'chef@prathomix.tech',
     salary: 95000,
     status: 'active',
     shift: 'Evening',
@@ -83,7 +84,7 @@ const INITIAL_STAFF: StaffMember[] = [
     employee_code: 'REC-01',
     passcode: 'reception2026',
     phone: '+91 98400 44004',
-    email: 'reception@prathomix.com',
+    email: 'reception@prathomix.tech',
     salary: 45000,
     status: 'active',
     shift: 'Morning',
@@ -96,7 +97,7 @@ const INITIAL_STAFF: StaffMember[] = [
     employee_code: 'W-1001',
     passcode: 'waiter2026',
     phone: '+91 98500 55005',
-    email: 'waiter@prathomix.com',
+    email: 'waiter@prathomix.tech',
     salary: 32000,
     status: 'active',
     shift: 'Evening',
@@ -109,7 +110,7 @@ const INITIAL_STAFF: StaffMember[] = [
     employee_code: 'DEL-01',
     passcode: 'delivery2026',
     phone: '+91 98600 66006',
-    email: 'delivery@prathomix.com',
+    email: 'delivery@prathomix.tech',
     salary: 28000,
     status: 'active',
     shift: 'Evening',
@@ -272,6 +273,9 @@ export default function AdminStaff() {
           Onboard Staff
         </button>
       </div>
+
+      {/* Real-time Staff Presence Monitor */}
+      <StaffPresenceView />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -444,12 +448,12 @@ export default function AdminStaff() {
       {/* Modal: Onboard / Edit Staff */}
       <AnimatePresence>
         {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg rounded-2xl bg-[#121212] border border-[#C5A880]/30 shadow-2xl p-6 relative">
+              className="w-full max-w-lg rounded-2xl bg-[#121212] border border-[#C5A880]/30 shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto relative">
               <div className="flex items-center justify-between pb-4 border-b border-[#C5A880]/15">
                 <h3
                   className="text-lg font-bold text-[#EAE6DF] tracking-wide"
@@ -549,7 +553,7 @@ export default function AdminStaff() {
                       type="email"
                       value={formEmail}
                       onChange={(e) => setFormEmail(e.target.value)}
-                      placeholder="staff@prathomix.com"
+                      placeholder="staff@prathomix.tech"
                       className="w-full px-3 py-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 text-[#EAE6DF] focus:outline-none focus:border-[#C5A880]"
                     />
                   </div>

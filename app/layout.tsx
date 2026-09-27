@@ -7,9 +7,17 @@ export const metadata: Metadata = {
   description: 'A floating glassmorphism restaurant experience with premium dining, curated menus, and seamless reservations.',
 };
 
-export const viewport = {
+import type { Viewport } from 'next';
+
+export const viewport: Viewport = {
   themeColor: '#C5A880',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
 };
+
+import ConnectionStatusBanner from '@/components/ConnectionStatusBanner';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -25,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-[#0A0A0A] text-[#EAE6DF] antialiased" suppressHydrationWarning={true}>
         <div className="min-h-screen relative isolate">
           {children}
+          <ConnectionStatusBanner />
         </div>
       </body>
     </html>

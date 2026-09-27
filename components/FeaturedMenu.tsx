@@ -41,13 +41,13 @@ export default async function FeaturedMenu() {
   };
 
   return (
-    <section className="py-32 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#0A0A0A] to-[#121212] paint-boost overflow-hidden">
-      <div className="glass-dark max-w-7xl mx-auto rounded-[3rem] border border-[#C5A880]/10 p-8 sm:p-12 lg:p-16 shadow-warm-lg">
+    <section className="py-16 sm:py-24 lg:py-32 px-2.5 sm:px-6 lg:px-8 bg-gradient-to-b from-[#0A0A0A] to-[#121212] paint-boost overflow-hidden">
+      <div className="glass-dark max-w-7xl mx-auto rounded-3xl sm:rounded-[3rem] border border-[#C5A880]/15 p-3.5 sm:p-8 lg:p-14 shadow-warm-lg">
         {/* Animated header */}
         <FeaturedMenuHeader />
 
         {dishes.length === 0 ? (
-          <div className="text-center py-24 glass-dark rounded-2xl border border-[#C5A880]/10">
+          <div className="text-center py-16 sm:py-24 glass-dark rounded-2xl border border-[#C5A880]/10">
             <p className="text-stone-400 mb-2">No signature dishes found.</p>
             <p className="text-xs text-stone-500">
               Please check connection or seed standard data.
@@ -57,9 +57,9 @@ export default async function FeaturedMenu() {
           /*
            * Asymmetrical Layout:
            * Uses different top margins on columns to break standard grid boxiness,
-           * matching high-end editorial style.
+           * matching high-end editorial style on desktop.
            */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 lg:gap-y-20">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-6 lg:gap-x-8 lg:gap-y-16">
             {dishes.map((dish, index) => (
               <div 
                 key={dish.id} 

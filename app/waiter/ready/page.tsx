@@ -133,24 +133,34 @@ export default function ReadyToServePage() {
 
   useEffect(() => {
     fetchServingOrders();
-    const interval = setInterval(fetchServingOrders, 3000); // Poll every 3 seconds
+    // Gentle 30-second fallback sync (realtime handles instant updates)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      fetchServingOrders();
+    }, 30000);
     return () => clearInterval(interval);
   }, [fetchServingOrders]);
 
-  // Listen to Supabase Realtime changes
+  // Listen to Supabase Realtime changes with debouncing
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+
     const channel = supabase
       .channel('ready-to-serve-stream')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: RESTAURANT_TABLES.orders },
         () => {
-          fetchServingOrders();
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            fetchServingOrders();
+          }, 350);
         }
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, [fetchServingOrders]);

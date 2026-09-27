@@ -2,26 +2,50 @@ import { NextResponse } from 'next/server';
 import { RESTAURANT_TABLES, DEFAULT_RESTAURANT_ID, supabase } from '@/lib/supabase';
 import { evaluateFraudRisk } from '@/lib/fraudRisk';
 import { validateTableSession, getOrCreateTableSession } from '@/lib/tableSession';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 // In-memory idempotency cache (TTL: 5 minutes)
-const idempotencyStore = new Map<string, { order: any; expiresAt: number }>();
+const idempotencyStore = new Map<string, { order?: any; inFlight?: boolean; expiresAt: number }>();
 
-function checkIdempotency(key?: string) {
-  if (!key) return null;
+function checkIdempotency(key?: string): { isExisting: boolean; order?: any; isInFlight?: boolean } {
+  if (!key) return { isExisting: false };
   const entry = idempotencyStore.get(key);
   if (entry && Date.now() < entry.expiresAt) {
-    return entry.order;
+    if (entry.inFlight) {
+      return { isExisting: true, isInFlight: true };
+    }
+    return { isExisting: true, order: entry.order };
   }
-  return null;
+  return { isExisting: false };
+}
+
+function lockIdempotency(key?: string) {
+  if (!key) return;
+  idempotencyStore.set(key, {
+    inFlight: true,
+    expiresAt: Date.now() + 30 * 1000, // 30s lock
+  });
 }
 
 function storeIdempotency(key: string, order: any) {
   if (!key) return;
   idempotencyStore.set(key, {
     order,
+    inFlight: false,
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
 }
+
+// Order Status Transition Rules
+const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending_verification: ['placed', 'cancelled'],
+  placed: ['preparing', 'cancelled'],
+  preparing: ['ready', 'cancelled'],
+  ready: ['served', 'completed', 'cancelled'],
+  served: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
 
 export async function POST(req: Request) {
   try {
@@ -53,12 +77,29 @@ export async function POST(req: Request) {
       device_fingerprint,
     } = body;
 
+    // ── Rate Limiting Protection ──────────────────────────────────────────
+    const clientIp = getClientIp(req);
+    const rateLimit = checkRateLimit(clientIp, 'orders');
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Order velocity limit reached. Please wait a moment before trying again.' },
+        { status: 429, headers: { 'Retry-After': rateLimit.retryAfterHeader || '3' } }
+      );
+    }
+
     // ── Idempotency Protection ─────────────────────────────────────────────
     if (idempotency_key) {
-      const existing = checkIdempotency(idempotency_key);
-      if (existing) {
-        return NextResponse.json(existing, { status: 200 });
+      const idem = checkIdempotency(idempotency_key);
+      if (idem.isExisting) {
+        if (idem.isInFlight) {
+          return NextResponse.json(
+            { error: 'Order is currently being processed. Please do not submit duplicate requests.' },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json(idem.order, { status: 200 });
       }
+      lockIdempotency(idempotency_key);
     }
 
     if (!dish_ids?.length || !total_amount) {
@@ -316,14 +357,32 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
+    const idParam = url.searchParams.get('id');
+    const orderNumberParam = url.searchParams.get('order_number');
     const statusParam = url.searchParams.get('status');
     const tableParam = url.searchParams.get('table');
     const verificationParam = url.searchParams.get('verification_status');
+    const restaurantId = url.searchParams.get('restaurant_id') || DEFAULT_RESTAURANT_ID;
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10)));
 
+    // Select explicit fields to optimize payload and DB bandwidth
     let query = supabase
       .from(RESTAURANT_TABLES.orders)
-      .select('*')
+      .select('id, order_number, restaurant_id, table_number, order_type, status, verification_status, total_amount, subtotal, tax_amount, dish_ids, dish_names, customer_name, customer_phone, waiter_name, payment_status, payment_method, notes, created_at, updated_at')
       .order('created_at', { ascending: false });
+
+    // Enforce tenant isolation
+    if (restaurantId) {
+      query = query.or(`restaurant_id.eq.${restaurantId},restaurant_id.is.null`);
+    }
+
+    if (idParam) {
+      query = query.eq('id', idParam);
+    }
+
+    if (orderNumberParam) {
+      query = query.eq('order_number', orderNumberParam);
+    }
 
     if (statusParam) {
       const statuses = statusParam.split(',');
@@ -339,7 +398,7 @@ export async function GET(req: Request) {
       query = query.eq('table_number', Number(tableParam));
     }
 
-    const { data, error } = await query.limit(100);
+    const { data, error } = await query.limit(limit);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data ?? []);
@@ -360,6 +419,32 @@ export async function PATCH(req: Request) {
     const validStatuses = ['pending_verification', 'placed', 'preparing', 'ready', 'served', 'completed', 'cancelled'];
     if (status && !validStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid order status' }, { status: 400 });
+    }
+
+    // ── Concurrency / State Transition Matrix Protection ────────────────
+    if (status) {
+      const { data: existingOrder } = await supabase
+        .from(RESTAURANT_TABLES.orders)
+        .select('status')
+        .eq('id', order_id)
+        .single();
+
+      if (existingOrder?.status) {
+        const currentStatus = existingOrder.status;
+        const allowedNext = ALLOWED_STATUS_TRANSITIONS[currentStatus] || [];
+
+        // Allow idempotent re-updates (e.g. ready -> ready), reject invalid moves and terminal reopening
+        if (currentStatus !== status && !allowedNext.includes(status)) {
+          return NextResponse.json(
+            {
+              error: `Invalid status transition: Order cannot move from '${currentStatus}' to '${status}'.`,
+              current_status: currentStatus,
+              allowed_transitions: allowedNext,
+            },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     const updatePayload: Record<string, unknown> = {

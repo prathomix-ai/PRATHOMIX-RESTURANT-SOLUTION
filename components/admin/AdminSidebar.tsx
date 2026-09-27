@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import {
   LayoutDashboard,
   UtensilsCrossed,
@@ -62,11 +63,17 @@ export default function AdminSidebar({
   }
 
   return (
-    <aside className="w-64 bg-[#121212] border-r border-[#C5A880]/15 flex flex-col h-screen sticky top-0 z-30">
+    <aside className="w-full lg:w-64 bg-[#121212] border-r border-[#C5A880]/15 flex flex-col h-full lg:h-screen lg:sticky lg:top-0 z-30">
       {/* Brand Header */}
-      <div className="p-5 border-b border-[#C5A880]/15 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C5A880]/20 to-[#8C7355]/30 border border-[#C5A880]/40 flex items-center justify-center text-[#C5A880] shadow-warm">
-          <Sparkles className="w-5 h-5 text-[#C5A880]" />
+      <div className="p-4 sm:p-5 border-b border-[#C5A880]/15 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[#0A0A0A] border border-[#C5A880]/40 flex items-center justify-center overflow-hidden p-1 shadow-warm flex-shrink-0">
+          <Image
+            src="/logo.png"
+            alt="PRATHOMIX"
+            width={36}
+            height={36}
+            className="w-full h-full object-contain"
+          />
         </div>
         <div className="min-w-0">
           <h2
@@ -81,19 +88,39 @@ export default function AdminSidebar({
       </div>
 
       {/* Nav List */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-none">
+      <nav className="flex-1 overflow-y-auto p-2.5 sm:p-3 space-y-1 scrollbar-none pb-safe">
         {NAV_ITEMS.map((item) => {
           const isActive = activeTab === item.id;
+          const tourId =
+            item.id === 'overview'
+              ? 'admin-dashboard'
+              : item.id === 'menu'
+              ? 'admin-menu'
+              : item.id === 'tables'
+              ? 'admin-tables'
+              : item.id === 'inventory'
+              ? 'admin-inventory'
+              : item.id === 'staff'
+              ? 'admin-staff'
+              : item.id === 'reports'
+              ? 'admin-analytics'
+              : item.id === 'audit'
+              ? 'admin-security'
+              : item.id === 'settings'
+              ? 'admin-settings'
+              : undefined;
+
           return (
             <button
               key={item.id}
+              data-tour={tourId}
               onClick={() => onTabChange(item.id)}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 min-h-[40px] sm:min-h-[42px] rounded-xl text-xs font-semibold tracking-wide transition-all ${
                 isActive
                   ? 'bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold shadow-md'
                   : 'text-[#EAE6DF]/70 hover:text-[#EAE6DF] hover:bg-[#1A1A1A]'
               }`}>
-              <item.icon className={`w-4 h-4 ${isActive ? 'text-[#0A0A0A]' : 'text-[#C5A880]'}`} />
+              <item.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#0A0A0A]' : 'text-[#C5A880]'}`} />
               <span className="truncate">{item.label}</span>
             </button>
           );

@@ -3,8 +3,18 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
 import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase, DEFAULT_RESTAURANT_ID } from '@/lib/supabase';
 import { ensureRestaurantDishesSeeded } from '@/lib/restaurantSeed';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`AI provider request timed out after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]);
+}
 
 const GEMINI_MODELS = [
   process.env.GEMINI_MODEL,
@@ -17,7 +27,6 @@ const GROQ_MODELS = [
   process.env.GROQ_MODEL,
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
-  'mixtral-8x7b-32768',
 ].filter(Boolean) as string[];
 
 // ═══════════════════════════════════════════════════════════════
@@ -387,14 +396,19 @@ const GROQ_TOOLS = [
 //  MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const rateCheck = checkRateLimit(ip, 'chat');
+
   const body = (await req.json()) as {
     messages?: Array<{ role: string; content: string }>;
     role?: string;
+    stream?: boolean;
   };
 
   const rawMessages = body.messages || [];
   const activeRole = body.role || 'customer';
   const systemPrompt = ROLE_SYSTEM_PROMPTS[activeRole] || ROLE_SYSTEM_PROMPTS.customer;
+  const isStreamRequested = body.stream === true || req.headers.get('accept')?.includes('text/event-stream');
 
   const sanitizedMessages = [...rawMessages];
   while (sanitizedMessages.length && sanitizedMessages[0].role !== 'user') {
@@ -409,180 +423,308 @@ export async function POST(req: Request) {
     });
   }
 
-  const lastUserMessage = sanitizedMessages[sanitizedMessages.length - 1]?.content ?? '';
+  // Bounded conversation history (max 8 messages) to protect memory & context window
+  const boundedMessages = sanitizedMessages.slice(-8);
 
-  // 1. If keys are missing, run high-intelligence local rule engine directly
-  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
+  // Maximum message size protection (cap user query at 1,000 characters)
+  const rawLastMessage = boundedMessages[boundedMessages.length - 1]?.content ?? '';
+  const lastUserMessage = rawLastMessage.slice(0, 1000);
+  boundedMessages[boundedMessages.length - 1].content = lastUserMessage;
+
+  // Rate limit protection: return polite concierge response without hard-crashing
+  if (!rateCheck.success) {
+    if (isStreamRequested) {
+      return new Response(
+        `data: ${JSON.stringify({ type: 'chunk', text: 'Mix Concierge is experiencing high inquiry traffic. Please allow a moment before sending another query.' })}\n\ndata: ${JSON.stringify({ type: 'done', provider: 'rate-limit' })}\n\n`,
+        {
+          headers: {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Retry-After': rateCheck.retryAfterHeader || '60',
+          },
+        }
+      );
+    }
     const local = await buildRoleAwareLocalResponse(lastUserMessage, activeRole);
     return NextResponse.json({
-      message: local.message,
+      message: `${local.message}\n\n*(High concurrent traffic detected — instant local dining intelligence provided.)*`,
       toolResult: local.toolResult,
       provider: 'local-intelligent-engine',
     });
   }
 
-  // 2. Primary: Gemini
-  try {
-    if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
-
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const history = sanitizedMessages.slice(0, -1).map((m) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }],
-    }));
-    const lastMsg = sanitizedMessages[sanitizedMessages.length - 1];
-
-    let geminiLastError: Error | null = null;
-
-    for (const geminiModel of GEMINI_MODELS) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: geminiModel,
-          systemInstruction: systemPrompt,
-          tools: GEMINI_TOOLS as any,
-        });
-
-        const chat = model.startChat({ history });
-        let response = await chat.sendMessage(lastMsg.content);
-        let result = response.response;
-
-        let toolResult: any = null;
-        let loopCount = 0;
-
-        while (result.functionCalls()?.length && loopCount < 4) {
-          loopCount++;
-          const call = result.functionCalls()![0];
-          const toolData = await executeTool(call.name, call.args as Record<string, unknown>);
-
-          if (!toolResult) {
-            if (call.name === 'search_dishes' && (toolData as any).dishes?.length) {
-              toolResult = { type: 'dishes', data: (toolData as any).dishes };
-            } else if (call.name === 'book_table' && (toolData as any).booking) {
-              toolResult = { type: 'booking', data: (toolData as any).booking };
-            } else if (call.name === 'get_menu' && (toolData as any).dishes?.length) {
-              toolResult = { type: 'dishes', data: (toolData as any).dishes };
-            } else if (call.name === 'get_inventory_alerts') {
-              toolResult = { type: 'inventory', data: toolData };
-            } else if (call.name === 'get_daily_sales') {
-              toolResult = { type: 'metrics', data: toolData };
-            } else if (call.name === 'get_table_status') {
-              toolResult = { type: 'tables', data: toolData };
-            }
-          }
-
-          response = await chat.sendMessage([
-            { functionResponse: { name: call.name, response: toolData } },
-          ]);
-          result = response.response;
-        }
-
-        return NextResponse.json({
-          message: result.text() || 'Here are the operational details for you.',
-          toolResult: toolResult ?? (await buildRoleAwareLocalResponse(lastUserMessage, activeRole)).toolResult,
-          provider: 'gemini',
-          model: geminiModel,
-        });
-      } catch (err) {
-        geminiLastError = err as Error;
-        console.warn(`[Chat] Gemini model failed (${geminiModel}):`, geminiLastError.message);
-      }
+  // Helper to execute generation logic
+  async function generateChatResponse(): Promise<{
+    message: string;
+    toolResult: any;
+    provider: string;
+    model?: string;
+  }> {
+    // 1. If keys are missing, run high-intelligence local rule engine directly
+    if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
+      const local = await buildRoleAwareLocalResponse(lastUserMessage, activeRole);
+      return {
+        message: local.message,
+        toolResult: local.toolResult,
+        provider: 'local-intelligent-engine',
+      };
     }
 
-    throw geminiLastError ?? new Error('All Gemini models failed');
-  } catch (geminiError) {
-    console.warn('[Chat] Gemini failed, switching to Groq fallback:', (geminiError as Error).message);
-
-    // 3. Fallback: Groq
+    // 2. Primary: Gemini
     try {
-      if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not set');
+      if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
 
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-      const groqMessages: any[] = [
-        { role: 'system', content: systemPrompt },
-        ...sanitizedMessages.map((m) => ({ role: m.role, content: m.content })),
-      ];
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const history = boundedMessages.slice(0, -1).map((m) => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.content }],
+      }));
+      const lastMsg = boundedMessages[boundedMessages.length - 1];
 
-      let groqLastError: Error | null = null;
+      let geminiLastError: Error | null = null;
 
-      for (const groqModel of GROQ_MODELS) {
+      for (const geminiModel of GEMINI_MODELS) {
         try {
-          const runMessages = [...groqMessages];
-          let completion = await groq.chat.completions.create({
-            model: groqModel,
-            messages: runMessages,
-            tools: GROQ_TOOLS,
-            tool_choice: 'auto',
-            max_tokens: 1024,
+          if (req.signal.aborted) break;
+
+          const model = genAI.getGenerativeModel({
+            model: geminiModel,
+            systemInstruction: systemPrompt,
+            tools: GEMINI_TOOLS as any,
           });
 
-          let choice = completion.choices[0];
+          const chat = model.startChat({ history });
+          let response = await withTimeout(chat.sendMessage(lastMsg.content), 8000);
+          let result = response.response;
+
           let toolResult: any = null;
           let loopCount = 0;
 
-          while (
-            choice.finish_reason === 'tool_calls' &&
-            choice.message.tool_calls?.length &&
-            loopCount < 4
-          ) {
+          while (result.functionCalls()?.length && loopCount < 4 && !req.signal.aborted) {
             loopCount++;
-            const toolCall = choice.message.tool_calls[0];
-            const args = JSON.parse(toolCall.function.arguments || '{}') as Record<string, unknown>;
-            const toolData = await executeTool(toolCall.function.name, args);
+            const call = result.functionCalls()![0];
+            const toolData = await executeTool(call.name, call.args as Record<string, unknown>);
 
             if (!toolResult) {
-              if (toolCall.function.name === 'search_dishes' && (toolData as any).dishes?.length) {
+              if (call.name === 'search_dishes' && (toolData as any).dishes?.length) {
                 toolResult = { type: 'dishes', data: (toolData as any).dishes };
-              } else if (toolCall.function.name === 'book_table' && (toolData as any).booking) {
+              } else if (call.name === 'book_table' && (toolData as any).booking) {
                 toolResult = { type: 'booking', data: (toolData as any).booking };
-              } else if (toolCall.function.name === 'get_menu' && (toolData as any).dishes?.length) {
+              } else if (call.name === 'get_menu' && (toolData as any).dishes?.length) {
                 toolResult = { type: 'dishes', data: (toolData as any).dishes };
-              } else if (toolCall.function.name === 'get_inventory_alerts') {
+              } else if (call.name === 'get_inventory_alerts') {
                 toolResult = { type: 'inventory', data: toolData };
-              } else if (toolCall.function.name === 'get_daily_sales') {
+              } else if (call.name === 'get_daily_sales') {
                 toolResult = { type: 'metrics', data: toolData };
-              } else if (toolCall.function.name === 'get_table_status') {
+              } else if (call.name === 'get_table_status') {
                 toolResult = { type: 'tables', data: toolData };
               }
             }
 
-            runMessages.push(choice.message);
-            runMessages.push({
-              role: 'tool',
-              tool_call_id: toolCall.id,
-              content: JSON.stringify(toolData),
-            });
-
-            completion = await groq.chat.completions.create({
-              model: groqModel,
-              messages: runMessages,
-              tools: GROQ_TOOLS,
-              tool_choice: 'auto',
-              max_tokens: 1024,
-            });
-            choice = completion.choices[0];
+            response = await withTimeout(
+              chat.sendMessage([{ functionResponse: { name: call.name, response: toolData } }]),
+              8000
+            );
+            result = response.response;
           }
 
-          return NextResponse.json({
-            message: choice.message.content || 'Here are the details for you.',
+          return {
+            message: result.text() || 'Here are the operational details for you.',
             toolResult: toolResult ?? (await buildRoleAwareLocalResponse(lastUserMessage, activeRole)).toolResult,
-            provider: 'groq',
-            model: groqModel,
-          });
+            provider: 'gemini',
+            model: geminiModel,
+          };
         } catch (err) {
-          groqLastError = err as Error;
-          console.warn(`[Chat] Groq model failed (${groqModel}):`, groqLastError.message);
+          geminiLastError = err as Error;
+          console.warn(`[Chat] Gemini model failed (${geminiModel}):`, geminiLastError.message);
         }
       }
 
-      throw groqLastError ?? new Error('All Groq models failed');
-    } catch (groqError) {
-      console.error('[Chat] Both AI providers failed, using local engine:', groqError);
-      const local = await buildRoleAwareLocalResponse(lastUserMessage, activeRole);
-      return NextResponse.json({
-        message: local.message,
-        toolResult: local.toolResult,
-        provider: 'local-intelligent-engine',
-      });
+      throw geminiLastError ?? new Error('All Gemini models failed');
+    } catch (geminiError) {
+      console.warn('[Chat] Gemini failed, switching to Groq fallback:', (geminiError as Error).message);
+
+      // 3. Fallback: Groq
+      try {
+        if (!process.env.GROQ_API_KEY) throw new Error('GROQ_API_KEY not set');
+
+        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const groqMessages: any[] = [
+          { role: 'system', content: systemPrompt },
+          ...boundedMessages.map((m) => ({ role: m.role, content: m.content })),
+        ];
+
+        let groqLastError: Error | null = null;
+
+        for (const groqModel of GROQ_MODELS) {
+          try {
+            if (req.signal.aborted) break;
+
+            const runMessages = [...groqMessages];
+            let completion = await withTimeout(
+              groq.chat.completions.create({
+                model: groqModel,
+                messages: runMessages,
+                tools: GROQ_TOOLS,
+                tool_choice: 'auto',
+                max_tokens: 1024,
+              }),
+              8000
+            );
+
+            let choice = completion.choices[0];
+            let toolResult: any = null;
+            let loopCount = 0;
+
+            while (
+              choice.finish_reason === 'tool_calls' &&
+              choice.message.tool_calls?.length &&
+              loopCount < 4 &&
+              !req.signal.aborted
+            ) {
+              loopCount++;
+              const toolCall = choice.message.tool_calls[0];
+              const args = JSON.parse(toolCall.function.arguments || '{}') as Record<string, unknown>;
+              const toolData = await executeTool(toolCall.function.name, args);
+
+              if (!toolResult) {
+                if (toolCall.function.name === 'search_dishes' && (toolData as any).dishes?.length) {
+                  toolResult = { type: 'dishes', data: (toolData as any).dishes };
+                } else if (toolCall.function.name === 'book_table' && (toolData as any).booking) {
+                  toolResult = { type: 'booking', data: (toolData as any).booking };
+                } else if (toolCall.function.name === 'get_menu' && (toolData as any).dishes?.length) {
+                  toolResult = { type: 'dishes', data: (toolData as any).dishes };
+                } else if (toolCall.function.name === 'get_inventory_alerts') {
+                  toolResult = { type: 'inventory', data: toolData };
+                } else if (toolCall.function.name === 'get_daily_sales') {
+                  toolResult = { type: 'metrics', data: toolData };
+                } else if (toolCall.function.name === 'get_table_status') {
+                  toolResult = { type: 'tables', data: toolData };
+                }
+              }
+
+              runMessages.push(choice.message);
+              runMessages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: JSON.stringify(toolData),
+              });
+
+              completion = await withTimeout(
+                groq.chat.completions.create({
+                  model: groqModel,
+                  messages: runMessages,
+                  tools: GROQ_TOOLS,
+                  tool_choice: 'auto',
+                  max_tokens: 1024,
+                }),
+                8000
+              );
+              choice = completion.choices[0];
+            }
+
+            return {
+              message: choice.message.content || 'Here are the details for you.',
+              toolResult: toolResult ?? (await buildRoleAwareLocalResponse(lastUserMessage, activeRole)).toolResult,
+              provider: 'groq',
+              model: groqModel,
+            };
+          } catch (err) {
+            groqLastError = err as Error;
+            console.warn(`[Chat] Groq model failed (${groqModel}):`, groqLastError.message);
+          }
+        }
+
+        throw groqLastError ?? new Error('All Groq models failed');
+      } catch (groqError) {
+        console.error('[Chat] Both AI providers failed, using local engine:', groqError);
+        const local = await buildRoleAwareLocalResponse(lastUserMessage, activeRole);
+        return {
+          message: local.message,
+          toolResult: local.toolResult,
+          provider: 'local-intelligent-engine',
+        };
+      }
     }
   }
+
+  // If streaming is requested, stream response with live abort cancellation
+  if (isStreamRequested) {
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const generated = await generateChatResponse();
+
+          if (req.signal.aborted) {
+            controller.close();
+            return;
+          }
+
+          // 1. Send tool result if available
+          if (generated.toolResult) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'tool', toolResult: generated.toolResult })}\n\n`)
+            );
+          }
+
+          // 2. Stream tokens/chunks smoothly
+          const text = generated.message || '';
+          const words = text.split(' ');
+
+          for (let i = 0; i < words.length; i++) {
+            if (req.signal.aborted) {
+              controller.close();
+              return;
+            }
+
+            const chunk = (i === 0 ? '' : ' ') + words[i];
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'chunk', text: chunk })}\n\n`)
+            );
+
+            // Small natural pacing for streaming experience
+            await new Promise((resolve) => setTimeout(resolve, 25));
+          }
+
+          // 3. Send done
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'done', provider: generated.provider })}\n\n`)
+          );
+          controller.close();
+        } catch (streamError) {
+          if (!req.signal.aborted) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'chunk',
+                  text: 'Sorry, I encountered an issue completing your request. Please try again.',
+                })}\n\n`
+              )
+            );
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+          }
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+      },
+    });
+  }
+
+  // Non-streaming JSON fallback
+  const result = await generateChatResponse();
+  return NextResponse.json({
+    message: result.message,
+    toolResult: result.toolResult,
+    provider: result.provider,
+    model: result.model,
+  });
 }
+

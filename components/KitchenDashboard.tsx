@@ -19,9 +19,13 @@ import {
   LogOut,
   UtensilsCrossed,
   Filter,
+  Settings,
 } from 'lucide-react';
 import { supabase, RESTAURANT_TABLES, type Order } from '@/lib/supabase';
 import { clearClientSession } from '@/lib/auth';
+import RoleOnboardingTutorial from './RoleOnboardingTutorial';
+import StaffSettingsModal from './StaffSettingsModal';
+import StaffPresenceHeartbeat from './StaffPresenceHeartbeat';
 
 function formatElapsedTimer(createdAt?: string, now = Date.now()) {
   if (!createdAt) return '00:00';
@@ -51,6 +55,7 @@ export default function KitchenDashboard() {
   const [rejectModalOrder, setRejectModalOrder] = useState<Order | null>(null);
   const [rejectReason, setRejectReason] = useState('Ingredient unavailable');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Live timer tick every second for stopwatches
   useEffect(() => {
@@ -64,12 +69,22 @@ export default function KitchenDashboard() {
   const fetchOrders = useCallback(async () => {
     setRefreshing(true);
     try {
-      const { data, error } = await supabase
+      const restId = typeof window !== 'undefined'
+        ? localStorage.getItem('prathomix_restaurant_id') || '10000000-0000-0000-0000-000000000001'
+        : '10000000-0000-0000-0000-000000000001';
+
+      let query = supabase
         .from(RESTAURANT_TABLES.orders)
-        .select('*')
+        .select('id, restaurant_id, order_number, table_number, dish_names, items_detail, total_amount, status, verification_status, priority, ready_at, notes, special_instructions, waiter_id, waiter_name, created_at')
         .in('status', ['placed', 'preparing', 'ready', 'completed', 'cancelled'])
         .order('created_at', { ascending: false })
         .limit(60);
+
+      if (restId) {
+        query = query.or(`restaurant_id.eq.${restId},restaurant_id.is.null`);
+      }
+
+      const { data, error } = await query;
 
       if (data) {
         // DEFENSIVE SAFEGUARD: Only verified orders reach the kitchen display
@@ -91,22 +106,34 @@ export default function KitchenDashboard() {
 
   useEffect(() => {
     fetchOrders();
+    // Gentle 30-second fallback sync
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      fetchOrders();
+    }, 30000);
+    return () => clearInterval(interval);
   }, [fetchOrders]);
 
-  // Real-time listener for incoming KOTs
+  // Real-time listener for incoming KOTs with debouncing
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+
     const channel = supabase
       .channel('kds-realtime-sync')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: RESTAURANT_TABLES.orders },
-        (payload) => {
-          fetchOrders();
+        () => {
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            fetchOrders();
+          }, 350);
         }
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, [fetchOrders]);
@@ -242,6 +269,7 @@ export default function KitchenDashboard() {
             {columnType === 'placed' && (
               <>
                 <button
+                  data-tour="chef-prep-btn"
                   disabled={busy}
                   onClick={() => handleAdvanceStatus(ord.id, 'preparing')}
                   className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-sky-700 hover:brightness-110 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md">
@@ -259,6 +287,7 @@ export default function KitchenDashboard() {
             {columnType === 'preparing' && (
               <div className="w-full space-y-2">
                 <button
+                  data-tour="chef-ready-btn"
                   disabled={busy}
                   onClick={() => handleAdvanceStatus(ord.id, 'ready', ord.priority || 'NORMAL')}
                   className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:brightness-110 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md">
@@ -307,26 +336,28 @@ export default function KitchenDashboard() {
   return (
     <main className="min-h-screen bg-[#0A0A0A] text-[#EAE6DF] pb-16">
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-xl border-b border-[#C5A880]/20 px-4 py-3 shadow-xl">
-        <div className="max-w-[98rem] mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C5A880]/20 to-[#8C7355]/30 border border-[#C5A880]/40 flex items-center justify-center text-[#C5A880] shadow-warm">
-              <Flame className="w-5 h-5 text-[#C5A880]" />
+      <header
+        data-tour="chef-kds-header"
+        className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-xl border-b border-[#C5A880]/20 px-3 sm:px-4 py-2.5 sm:py-3 shadow-xl">
+        <div className="max-w-[98rem] mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#C5A880]/20 to-[#8C7355]/30 border border-[#C5A880]/40 flex items-center justify-center text-[#C5A880] shadow-warm flex-shrink-0">
+              <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-[#C5A880]" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="font-display font-bold text-lg tracking-wide text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
-                  KITCHEN DISPLAY SYSTEM (KDS)
+                <h1 className="font-display font-bold text-sm sm:text-lg tracking-wide text-[#EAE6DF] truncate" style={{ fontFamily: 'Cinzel, serif' }}>
+                  KDS COMMAND
                 </h1>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
               </div>
-              <p className="text-xs text-[#EAE6DF]/60">
+              <p className="text-[11px] sm:text-xs text-[#EAE6DF]/60 hidden xs:block truncate">
                 Back of House · Realtime Ticket Stream · Active Cook Timers
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
             {/* Quick counters */}
             <div className="hidden md:flex items-center gap-2 text-xs">
               <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
@@ -343,33 +374,51 @@ export default function KitchenDashboard() {
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
               title={soundEnabled ? 'Mute alert chime' : 'Enable alert chime'}
-              className="w-9 h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-[#C5A880]" /> : <VolumeX className="w-4 h-4" />}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#C5A880]" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
             <button
               onClick={fetchOrders}
               disabled={refreshing}
               title="Refresh tickets"
-              className="w-9 h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[#C5A880]' : ''}`} />
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${refreshing ? 'animate-spin text-[#C5A880]' : ''}`} />
+            </button>
+
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title="KDS Settings & Station Setup"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             <button
               onClick={handleLogout}
               title="Exit KDS"
-              className="w-9 h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-rose-500/40 flex items-center justify-center text-[#EAE6DF]/70 hover:text-rose-400 transition-all">
-              <LogOut className="w-4 h-4" />
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-rose-500/40 flex items-center justify-center text-[#EAE6DF]/70 hover:text-rose-400 transition-all">
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* 4-Column Kanban KDS Layout */}
-      <div className="max-w-[98rem] mx-auto px-4 pt-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+      {/* Role Onboarding Tutorial & Chef Settings Modal */}
+      <RoleOnboardingTutorial role="chef" staffName="Head Chef" />
+      <StaffSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        role="chef"
+        staffName="Head Chef"
+        staffId="CHF-01"
+      />
+      <StaffPresenceHeartbeat role="chef" userId="CHF-01" userName="Head Chef" />
+
+      {/* 4-Column Kanban KDS Layout — 1 col on phone, 2 on tablet, 4 on desktop */}
+      <div className="max-w-[98rem] mx-auto px-3 sm:px-4 pt-4 sm:pt-5 pb-safe">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-start">
           {/* Column 1: NEW / PLACED */}
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="chef-orders">
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[#121212] border border-amber-500/30">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
@@ -392,7 +441,7 @@ export default function KitchenDashboard() {
           </div>
 
           {/* Column 2: PREPARING */}
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="chef-preparing">
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[#121212] border border-sky-500/30">
               <div className="flex items-center gap-2">
                 <Flame className="w-4 h-4 text-sky-400 animate-pulse" />
@@ -415,7 +464,7 @@ export default function KitchenDashboard() {
           </div>
 
           {/* Column 3: READY */}
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="chef-ready">
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[#121212] border border-emerald-500/30">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -438,7 +487,7 @@ export default function KitchenDashboard() {
           </div>
 
           {/* Column 4: COMPLETED / SERVED */}
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="chef-completed">
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[#121212] border border-[#C5A880]/20">
               <div className="flex items-center gap-2">
                 <CheckCheck className="w-4 h-4 text-[#C5A880]" />

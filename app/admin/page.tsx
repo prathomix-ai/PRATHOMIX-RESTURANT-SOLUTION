@@ -36,6 +36,9 @@ import AdminCRM from '@/components/admin/AdminCRM';
 import AdminCoupons from '@/components/admin/AdminCoupons';
 import AdminReports from '@/components/admin/AdminReports';
 import AdminSettings from '@/components/admin/AdminSettings';
+import AdminAuditTrail from '@/components/admin/AdminAuditTrail';
+import RoleOnboardingTutorial from '@/components/RoleOnboardingTutorial';
+import StaffPresenceHeartbeat from '@/components/StaffPresenceHeartbeat';
 
 function AdminContent() {
   const router = useRouter();
@@ -99,7 +102,7 @@ function AdminContent() {
         restaurant_id: '10000000-0000-0000-0000-000000000001',
         role: 'owner',
         name: 'Alexander Wright',
-        email: 'owner@prathomix.com',
+        email: 'owner@prathomix.tech',
         status: 'active',
       };
       setCurrentUser(defaultOwner);
@@ -168,7 +171,7 @@ function AdminContent() {
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-72 bg-[#121212] z-10 shadow-2xl h-full flex flex-col">
+              className="relative w-[min(300px,85vw)] bg-[#121212] z-10 shadow-2xl h-full flex flex-col">
               <div className="p-4 border-b border-[#C5A880]/15 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-[#C5A880]" />
@@ -178,7 +181,7 @@ function AdminContent() {
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1 rounded-lg text-[#EAE6DF]/60 hover:text-[#EAE6DF]">
+                  className="p-1.5 rounded-lg text-[#EAE6DF]/60 hover:text-[#EAE6DF] min-w-[36px] min-h-[36px] flex items-center justify-center">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -199,11 +202,11 @@ function AdminContent() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-16 px-4 sm:px-6 bg-[#121212]/90 backdrop-blur-xl border-b border-[#C5A880]/15 flex items-center justify-between sticky top-0 z-20">
-          <div className="flex items-center gap-3">
+        <header className="h-16 px-3 sm:px-6 bg-[#121212]/90 backdrop-blur-xl border-b border-[#C5A880]/15 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="p-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/15 text-[#C5A880] lg:hidden">
+              className="p-2 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/15 text-[#C5A880] lg:hidden min-w-[40px] min-h-[40px] flex items-center justify-center">
               <MenuIcon className="w-5 h-5" />
             </button>
 
@@ -264,7 +267,7 @@ function AdminContent() {
         </header>
 
         {/* Dynamic Tab Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto pb-safe">
           {activeTab === 'overview' && (
             <AdminOverview
               orders={orders}
@@ -280,10 +283,25 @@ function AdminContent() {
           {activeTab === 'crm' && <AdminCRM />}
           {activeTab === 'coupons' && <AdminCoupons />}
           {activeTab === 'reports' && <AdminReports />}
-          {activeTab === 'audit' && <AdminReports />}
-          {activeTab === 'settings' && <AdminSettings />}
+          {activeTab === 'audit' && <AdminAuditTrail />}
+          {activeTab === 'settings' && <AdminSettings role={currentUser?.role} onRefresh={loadData} />}
         </main>
       </div>
+
+      {/* Role-Specific Onboarding Tutorial */}
+      {currentUser && (
+        <>
+          <RoleOnboardingTutorial
+            role={currentUser.role === 'owner' ? 'owner' : 'admin'}
+            userId={currentUser.id}
+          />
+          <StaffPresenceHeartbeat
+            role={currentUser.role}
+            userId={currentUser.id}
+            userName={currentUser.name}
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -26,13 +26,13 @@ Unified authentication is available at **`/login`** supporting standard email cr
 
 | Role | Badge / Email | Passcode | Landing Destination | Primary Operational Scope |
 |---|---|---|---|---|
-| **Owner / Executive** | `owner@prathomix.com` / `ADM-01` | `prathomix2024` | `/admin` | Complete restaurant controls, financial analytics, menu CRUD, inventory, staff, CRM. |
+| **Owner / Executive** | `owner@prathomix.tech` / `ADM-01` | `prathomix2024` | `/admin` | Complete restaurant controls, financial analytics, menu CRUD, inventory, staff, CRM. |
 | **Operations Admin** | `admin@prathomix.tech` / `ADM-02` | `prathomix2024` | `/admin` | Day-to-day catalog, coupon promotions, floor table configuration, sales ledger. |
-| **Front Desk Reception** | `reception@prathomix.com` / `REC-01` | `reception2026` | `/reception/dashboard` | 5-status live floor map, 1-click walk-in seating, VIP guest reservation book. |
-| **Head Chef** | `chef@prathomix.com` / `CHF-01` | `kitchen2026` | `/kitchen/dashboard` | 4-column KDS Kanban, elapsed cooking stopwatches, SLA delay alerts, rejection modal. |
-| **Lead Waiter / Server** | `waiter@prathomix.com` / `W-1001` | `waiter2026` | `/waiter/dashboard` | Handheld POS order builder, dish modifiers (*extra spicy, no alliums*), live KOT dispatch. |
-| **Delivery Courier** | `delivery@prathomix.com` / `DEL-01` | `delivery2026` | `/delivery/dashboard` | Direct takeaway & home delivery dispatch tracking. |
-| **VIP Customer** | `customer@prathomix.com` | `customer2026` | `/` | Dine-in QR scan (`/menu?table=X`), zero-commission cart, bill split UPI QR, AI concierge. |
+| **Front Desk Reception** | `reception@prathomix.tech` / `REC-01` | `reception2026` | `/reception/dashboard` | 5-status live floor map, 1-click walk-in seating, VIP guest reservation book. |
+| **Head Chef** | `chef@prathomix.tech` / `CHF-01` | `kitchen2026` | `/kitchen/dashboard` | 4-column KDS Kanban, elapsed cooking stopwatches, SLA delay alerts, rejection modal. |
+| **Lead Waiter / Server** | `waiter@prathomix.tech` / `W-1001` | `waiter2026` | `/waiter/dashboard` | Handheld POS order builder, dish modifiers (*extra spicy, no alliums*), live KOT dispatch. |
+| **Delivery Courier** | `delivery@prathomix.tech` / `DEL-01` | `delivery2026` | `/delivery/dashboard` | Direct takeaway & home delivery dispatch tracking. |
+| **VIP Customer** | `customer@prathomix.tech` | `customer2026` | `/` | Dine-in QR scan (`/menu?table=X`), zero-commission cart, bill split UPI QR, AI concierge. |
 
 ---
 

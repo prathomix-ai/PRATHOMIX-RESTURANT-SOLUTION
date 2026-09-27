@@ -21,12 +21,12 @@ Login URL: **`http://localhost:3000/login`**
 | Role | Email / ID Badge | Passcode / Password | Landing Page | Access Scope |
 |---|---|---|---|---|
 | **Operations Admin** | **`admin@prathomix.tech`** / **`ADM-02`** | **`prathomix2024`** | `/admin` | Complete restaurant control, catalog, floor map, inventory, staff, CRM, reports |
-| **Master Owner** | `owner@prathomix.com` / `ADM-01` | `prathomix2024` | `/admin` | Full executive command, multi-branch, fiscal settings |
-| **Front Desk Reception** | `reception@prathomix.com` / `REC-01` | `reception2026` | `/reception/dashboard` | 5-state live floor map, 1-click walk-in seating, VIP reservation ledger |
-| **Executive Head Chef** | `chef@prathomix.com` / `CHF-01` | `kitchen2026` | `/kitchen/dashboard` | 4-column KDS Kanban board, live stopwatches, SLA delay alerts, rejection modal |
-| **Lead Waiter / Server** | `waiter@prathomix.com` / `W-1001` | `waiter2026` | `/waiter/dashboard` | Handheld mobile POS, food modifiers, instant KOT dispatch with double-click lock |
-| **Delivery Specialist** | `delivery@prathomix.com` / `DEL-01` | `delivery2026` | `/delivery/dashboard` | Takeaway & Home delivery dispatch tracking |
-| **VIP Customer** | `customer@prathomix.com` | `customer2026` | `/` | Dine-in QR scan (`/menu?table=X`), zero-commission cart, UPI split bill, AI assistant |
+| **Master Owner** | `owner@prathomix.tech` / `ADM-01` | `prathomix2024` | `/admin` | Full executive command, multi-branch, fiscal settings |
+| **Front Desk Reception** | `reception@prathomix.tech` / `REC-01` | `reception2026` | `/reception/dashboard` | 5-state live floor map, 1-click walk-in seating, VIP reservation ledger |
+| **Executive Head Chef** | `chef@prathomix.tech` / `CHF-01` | `kitchen2026` | `/kitchen/dashboard` | 4-column KDS Kanban board, live stopwatches, SLA delay alerts, rejection modal |
+| **Lead Waiter / Server** | `waiter@prathomix.tech` / `W-1001` | `waiter2026` | `/waiter/dashboard` | Handheld mobile POS, food modifiers, instant KOT dispatch with double-click lock |
+| **Delivery Specialist** | `delivery@prathomix.tech` / `DEL-01` | `delivery2026` | `/delivery/dashboard` | Takeaway & Home delivery dispatch tracking |
+| **VIP Customer** | `customer@prathomix.tech` | `customer2026` | `/` | Dine-in QR scan (`/menu?table=X`), zero-commission cart, UPI split bill, AI assistant |
 
 ---
 

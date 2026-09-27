@@ -116,7 +116,7 @@ export default function AdminOverview({ orders, dishes, inventory, bookingsCount
         </div>
 
         {/* Date Filter Pills */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#121212] border border-[#C5A880]/20">
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#121212] border border-[#C5A880]/20 max-w-full overflow-x-auto scrollbar-none">
           {[
             { id: 'today', label: 'Today' },
             { id: '7days', label: '7 Days' },
@@ -126,7 +126,7 @@ export default function AdminOverview({ orders, dishes, inventory, bookingsCount
             <button
               key={item.id}
               onClick={() => setDateFilter(item.id as any)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wider transition-all ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wider whitespace-nowrap transition-all ${
                 dateFilter === item.id
                   ? 'bg-[#C5A880] text-[#0A0A0A] font-bold shadow-sm'
                   : 'text-[#EAE6DF]/60 hover:text-[#EAE6DF]'
@@ -138,13 +138,13 @@ export default function AdminOverview({ orders, dishes, inventory, bookingsCount
       </div>
 
       {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-dark border border-[#C5A880]/20 rounded-3xl p-5 shadow-warm space-y-1">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div data-tour="admin-sales" className="glass-dark border border-[#C5A880]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-warm space-y-1">
           <div className="flex items-center justify-between text-xs text-[#EAE6DF]/60">
             <span className="uppercase tracking-wider font-semibold">Total Revenue</span>
             <DollarSign className="w-4 h-4 text-[#C5A880]" />
           </div>
-          <p className="text-2xl font-bold text-[#C5A880] font-display" style={{ fontFamily: 'Cinzel, serif' }}>
+          <p className="text-xl sm:text-2xl font-bold text-[#C5A880] font-display" style={{ fontFamily: 'Cinzel, serif' }}>
             ₹{metrics.totalRev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </p>
           <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
@@ -152,30 +152,30 @@ export default function AdminOverview({ orders, dishes, inventory, bookingsCount
           </span>
         </div>
 
-        <div className="glass-dark border border-[#C5A880]/20 rounded-3xl p-5 shadow-warm space-y-1">
+        <div data-tour="admin-orders" className="glass-dark border border-[#C5A880]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-warm space-y-1">
           <div className="flex items-center justify-between text-xs text-[#EAE6DF]/60">
             <span className="uppercase tracking-wider font-semibold">Total Orders</span>
             <ShoppingBag className="w-4 h-4 text-sky-400" />
           </div>
-          <p className="text-2xl font-bold text-[#EAE6DF]">{metrics.orderCount}</p>
+          <p className="text-xl sm:text-2xl font-bold text-[#EAE6DF]">{metrics.orderCount}</p>
           <span className="text-[10px] text-[#EAE6DF]/60">Avg Value: ₹{metrics.aov.toFixed(0)}</span>
         </div>
 
-        <div className="glass-dark border border-[#C5A880]/20 rounded-3xl p-5 shadow-warm space-y-1">
+        <div className="glass-dark border border-[#C5A880]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-warm space-y-1">
           <div className="flex items-center justify-between text-xs text-[#EAE6DF]/60">
             <span className="uppercase tracking-wider font-semibold">Reservations</span>
             <Users className="w-4 h-4 text-emerald-400" />
           </div>
-          <p className="text-2xl font-bold text-[#EAE6DF]">{bookingsCount}</p>
+          <p className="text-xl sm:text-2xl font-bold text-[#EAE6DF]">{bookingsCount}</p>
           <span className="text-[10px] text-emerald-400 font-semibold">Front Desk Managed</span>
         </div>
 
-        <div className="glass-dark border border-[#C5A880]/20 rounded-3xl p-5 shadow-warm space-y-1">
+        <div className="glass-dark border border-[#C5A880]/20 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-warm space-y-1">
           <div className="flex items-center justify-between text-xs text-[#EAE6DF]/60">
             <span className="uppercase tracking-wider font-semibold">Stock Alerts</span>
             <AlertTriangle className={`w-4 h-4 ${metrics.lowStockCount > 0 ? 'text-amber-400' : 'text-stone-400'}`} />
           </div>
-          <p className={`text-2xl font-bold ${metrics.lowStockCount > 0 ? 'text-amber-400' : 'text-[#EAE6DF]'}`}>
+          <p className={`text-xl sm:text-2xl font-bold ${metrics.lowStockCount > 0 ? 'text-amber-400' : 'text-[#EAE6DF]'}`}>
             {metrics.lowStockCount}
           </p>
           <span className="text-[10px] text-[#EAE6DF]/60">
@@ -247,8 +247,8 @@ export default function AdminOverview({ orders, dishes, inventory, bookingsCount
           </div>
         </div>
 
-        {/* Top Selling Dishes */}
-        <div className="lg:col-span-6 glass-dark border border-[#C5A880]/20 rounded-3xl p-6 shadow-xl space-y-4">
+        {/* Top Selling Dishes / Insights */}
+        <div data-tour="owner-ai-insights" className="lg:col-span-6 glass-dark border border-[#C5A880]/20 rounded-3xl p-6 shadow-xl space-y-4">
           <h3
             className="font-display font-bold text-base text-[#EAE6DF] flex items-center gap-2"
             style={{ fontFamily: 'Cinzel, serif' }}>

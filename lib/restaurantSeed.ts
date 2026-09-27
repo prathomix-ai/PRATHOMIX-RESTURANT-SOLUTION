@@ -1,6 +1,10 @@
 import { RESTAURANT_SEED_DISHES, RESTAURANT_TABLES, supabase } from './supabase';
 
+let hasCheckedSeed = false;
+
 export async function ensureRestaurantDishesSeeded() {
+  if (hasCheckedSeed) return;
+
   try {
     const { data, error } = await supabase
       .from(RESTAURANT_TABLES.dishes)
@@ -8,7 +12,7 @@ export async function ensureRestaurantDishesSeeded() {
       .limit(1);
 
     if (error) {
-      console.error('[restaurantSeed] Failed to check seeded dishes:', error);
+      console.warn('[restaurantSeed] Failed to check seeded dishes:', error.message);
       return;
     }
 
@@ -18,10 +22,12 @@ export async function ensureRestaurantDishesSeeded() {
         .upsert(RESTAURANT_SEED_DISHES, { onConflict: 'id' });
 
       if (seedError) {
-        console.error('[restaurantSeed] Failed to seed dishes:', seedError);
+        console.warn('[restaurantSeed] Failed to seed dishes:', seedError.message);
       }
     }
-  } catch (error) {
-    console.error('[restaurantSeed] Unexpected seed failure:', error);
+
+    hasCheckedSeed = true;
+  } catch (error: any) {
+    console.warn('[restaurantSeed] Unexpected seed check failure:', error?.message);
   }
 }

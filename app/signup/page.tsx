@@ -282,7 +282,7 @@ function SignupContent() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="contact@prathomix.com"
+                  placeholder="contact@prathomix.tech"
                   className="w-full bg-[#121212]/80 border border-[#C5A880]/20 focus:border-[#C5A880] rounded-xl px-3.5 py-2.5 text-sm text-[#EAE6DF] placeholder-[#EAE6DF]/30 outline-none"
                 />
               </div>

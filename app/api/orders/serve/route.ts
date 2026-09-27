@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase, RESTAURANT_TABLES, DEFAULT_RESTAURANT_ID, Order } from '@/lib/supabase';
 import { verifyQrToken } from '@/lib/qrToken';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 import {
   addServingNotification,
   recordOrderStatusHistory,
@@ -12,6 +13,15 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rateCheck = checkRateLimit(ip, 'general');
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { error: 'Too many serving requests. Please slow down.' },
+        { status: 429, headers: { 'Retry-After': rateCheck.retryAfterHeader || '60' } }
+      );
+    }
+
     const url = new URL(req.url);
     const tableParam = url.searchParams.get('table');
     const restaurantId = url.searchParams.get('restaurant_id') || DEFAULT_RESTAURANT_ID;
@@ -20,9 +30,13 @@ export async function GET(req: Request) {
     // Fetch orders that are in the serving pipeline (ready or picked_up)
     let query = supabase
       .from(RESTAURANT_TABLES.orders)
-      .select('*')
+      .select('id, order_number, restaurant_id, table_number, status, priority, ready_at, picked_up_at, picked_up_by, served_at, served_by, dish_names, items_detail, notes, special_instructions, waiter_id, waiter_name, created_at')
       .in('status', ['ready', 'picked_up'])
       .order('ready_at', { ascending: true }); // Oldest ready first
+
+    if (restaurantId) {
+      query = query.or(`restaurant_id.eq.${restaurantId},restaurant_id.is.null`);
+    }
 
     if (tableParam) {
       query = query.eq('table_number', Number(tableParam));
@@ -33,7 +47,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const orders: Order[] = rawOrders || [];
+    const orders: Order[] = (rawOrders as unknown as Order[]) || [];
 
     // Optional notifications bundle
     let notifications = undefined;
@@ -54,6 +68,15 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rateCheck = checkRateLimit(ip, 'orders');
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { error: 'Too many serving action requests. Please slow down.' },
+        { status: 429, headers: { 'Retry-After': rateCheck.retryAfterHeader || '60' } }
+      );
+    }
+
     const body = await req.json();
     const {
       action,
@@ -102,6 +125,13 @@ export async function POST(req: Request) {
 
       if (fetchErr || !existingOrder) {
         return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      }
+
+      if (['served', 'completed', 'cancelled'].includes(existingOrder.status)) {
+        return NextResponse.json(
+          { error: `Cannot mark order in '${existingOrder.status}' status as ready.` },
+          { status: 409 }
+        );
       }
 
       const effectivePriority = priority || existingOrder.priority || 'NORMAL';
@@ -252,6 +282,13 @@ export async function POST(req: Request) {
 
       if (fetchErr || !existingOrder) {
         return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      }
+
+      if (['completed', 'cancelled'].includes(existingOrder.status)) {
+        return NextResponse.json(
+          { error: `Cannot serve order in '${existingOrder.status}' status.` },
+          { status: 409 }
+        );
       }
 
       // WRONG TABLE PROTECTION

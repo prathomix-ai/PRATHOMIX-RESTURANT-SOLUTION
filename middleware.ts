@@ -18,26 +18,39 @@ const ROUTE_PERMISSIONS: Array<{
   prefix: string;
   allowedRoles: string[];
   loginFallback: string;
+  exclude?: string[];
 }> = [
+  {
+    prefix: '/owner',
+    allowedRoles: ['owner'],
+    loginFallback: '/login?redirect=/admin',
+  },
   {
     prefix: '/admin',
     allowedRoles: ['owner', 'admin', 'manager', 'accountant'],
     loginFallback: '/login?redirect=/admin',
   },
   {
-    prefix: '/waiter/dashboard',
+    prefix: '/waiter',
     allowedRoles: ['waiter', 'owner', 'admin', 'manager'],
     loginFallback: '/login?redirect=/waiter/dashboard',
+    exclude: ['/waiter/login'],
+  },
+  {
+    prefix: '/kitchen',
+    allowedRoles: ['chef', 'kitchen', 'owner', 'admin', 'manager'],
+    loginFallback: '/login?redirect=/kitchen/dashboard',
+    exclude: ['/kitchen/login'],
+  },
+  {
+    prefix: '/chef',
+    allowedRoles: ['chef', 'kitchen', 'owner', 'admin', 'manager'],
+    loginFallback: '/login?redirect=/kitchen/dashboard',
   },
   {
     prefix: '/reception/dashboard',
     allowedRoles: ['receptionist', 'reception', 'owner', 'admin', 'manager'],
-    loginFallback: '/login?redirect=/reception/dashboard',
-  },
-  {
-    prefix: '/kitchen/dashboard',
-    allowedRoles: ['chef', 'kitchen', 'owner', 'admin', 'manager'],
-    loginFallback: '/login?redirect=/kitchen/dashboard',
+    loginFallback: '/reception',
   },
   {
     prefix: '/delivery',
@@ -66,13 +79,17 @@ export function middleware(request: NextRequest) {
   // Check matching protected routes
   for (const route of ROUTE_PERMISSIONS) {
     if (pathname === route.prefix || pathname.startsWith(route.prefix + '/')) {
+      if (route.exclude && route.exclude.some((ex) => pathname === ex || pathname.startsWith(ex + '/'))) {
+        continue;
+      }
+
       // 1. If not authenticated at all -> redirect to login
       if (!userRole) {
         const loginUrl = new URL(route.loginFallback, request.url);
         return NextResponse.redirect(loginUrl);
       }
 
-      // 2. If authenticated but role is not authorized for this section -> redirect to their authorized dashboard
+      // 2. If authenticated as customer or non-authorized role -> strictly block
       if (!route.allowedRoles.includes(userRole)) {
         const correctHome = ROLE_DASHBOARDS[userRole] || '/';
         const deniedUrl = new URL(correctHome, request.url);
@@ -80,6 +97,14 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(deniedUrl);
       }
     }
+  }
+
+  // Handle redirects for convenience paths
+  if (pathname === '/owner' && userRole === 'owner') {
+    return NextResponse.redirect(new URL('/admin', request.url));
+  }
+  if (pathname === '/chef' && (userRole === 'chef' || userRole === 'kitchen' || userRole === 'owner' || userRole === 'admin')) {
+    return NextResponse.redirect(new URL('/kitchen/dashboard', request.url));
   }
 
   // Handle legacy login route redirects if already logged in with matching role
@@ -98,10 +123,17 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/owner/:path*',
+    '/owner',
     '/admin/:path*',
-    '/waiter/dashboard/:path*',
+    '/admin',
+    '/waiter/:path*',
+    '/waiter',
+    '/kitchen/:path*',
+    '/kitchen',
+    '/chef/:path*',
+    '/chef',
     '/reception/dashboard/:path*',
-    '/kitchen/dashboard/:path*',
     '/delivery/:path*',
     '/kitchen/login',
     '/waiter/login',

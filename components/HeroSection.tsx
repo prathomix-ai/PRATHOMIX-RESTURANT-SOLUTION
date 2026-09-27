@@ -32,7 +32,7 @@ const itemVariants = {
 export default function HeroSection() {
   return (
     <section
-      className="relative h-screen min-h-[600px] w-full flex items-center justify-center overflow-hidden bg-[#0A0A0A]"
+      className="relative h-[100dvh] min-h-[520px] sm:min-h-[600px] w-full flex items-center justify-center overflow-hidden bg-[#0A0A0A]"
       aria-label="Hero — Prathomix Fine Dining"
     >
       {/* ── Immersive Ken Burns background ── */}
@@ -71,27 +71,27 @@ export default function HeroSection() {
 
       {/* ── Typography & CTA ── */}
       <motion.div
-        className="relative z-[3] text-center max-w-5xl mx-auto px-6 flex flex-col items-center justify-center h-full"
+        className="relative z-[3] text-center max-w-5xl mx-auto px-4 sm:px-6 flex flex-col items-center justify-center h-full"
         variants={containerVariants}
         initial="hidden"
         animate="show"
       >
         {/* Luxury tier indicator */}
-        <motion.div variants={itemVariants} className="flex flex-col items-center gap-3 mb-6">
+        <motion.div variants={itemVariants} className="flex flex-col items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Star key={i} className="w-3.5 h-3.5 text-[#C5A880] fill-[#C5A880]" />
+              <Star key={i} className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#C5A880] fill-[#C5A880]" />
             ))}
           </div>
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.35em] text-[#C5A880]">
+          <span className="text-[9px] sm:text-xs font-bold uppercase tracking-[0.25em] sm:tracking-[0.35em] text-[#C5A880]">
             An Exclusive Culinary Sanctuary
           </span>
         </motion.div>
 
-        {/* Large Elegant Serif Title */}
+        {/* Large Elegant Serif Title with fluid clamp */}
         <motion.h1
           variants={itemVariants}
-          className="font-display text-5xl sm:text-7xl lg:text-[7.5rem] font-medium leading-[1.05] tracking-widest text-white mb-6 uppercase"
+          className="font-display text-[clamp(2.1rem,8.5vw,7.5rem)] font-medium leading-[1.05] tracking-wider sm:tracking-widest text-white mb-3 sm:mb-6 uppercase"
           style={{ fontFamily: '"Cormorant Garamond", "Cinzel", serif' }}
         >
           Prathomix
@@ -100,23 +100,23 @@ export default function HeroSection() {
         {/* Subtitle */}
         <motion.p
           variants={itemVariants}
-          className="text-stone-300 font-sans text-sm sm:text-base md:text-lg max-w-xl mx-auto mb-12 leading-relaxed tracking-wider uppercase"
+          className="text-stone-300 font-sans text-xs sm:text-base md:text-lg max-w-xl mx-auto mb-6 sm:mb-12 leading-relaxed tracking-wider uppercase px-2"
           style={{ fontFamily: 'Montserrat, sans-serif' }}
         >
           A symphony of gastronomy, bespoke artistry, and pure exclusivity in Jaipur.
         </motion.p>
 
         {/* Single Sleek Gold View Menu Button */}
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} className="max-w-full">
           <MotionLink
             href="/menu"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
             transition={{ duration: 0.35, ease: [0.25, 1, 0.5, 1] }}
-            className="group flex items-center justify-center gap-3.5 bg-transparent border border-[#C5A880] text-[#C5A880] hover:text-[#0A0A0A] hover:bg-[#C5A880] font-bold px-10 py-5 rounded-full text-xs uppercase tracking-[0.25em] transition-all duration-500 shadow-lg"
+            className="group inline-flex items-center justify-center gap-2.5 sm:gap-3.5 bg-transparent border border-[#C5A880] text-[#C5A880] hover:text-[#0A0A0A] hover:bg-[#C5A880] font-bold px-6 sm:px-10 py-3.5 sm:py-5 min-h-[44px] rounded-full text-[11px] sm:text-xs uppercase tracking-[0.18em] sm:tracking-[0.25em] transition-all duration-500 shadow-lg max-w-full text-center"
           >
-            Explore the Menu 
-            <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+            <span>Explore the Menu</span>
+            <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1 flex-shrink-0" />
           </MotionLink>
         </motion.div>
       </motion.div>

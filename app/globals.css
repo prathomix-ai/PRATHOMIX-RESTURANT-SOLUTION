@@ -358,3 +358,75 @@ body::after {
   20%  { opacity: 1; }
   100% { transform: translateX(360%) skewX(-20deg); opacity: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FLUID RESPONSIVE SYSTEM & SAFE AREA ADAPTATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+/* Safe-area utilities for notched phones, Dynamic Island, and home bars */
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.pl-safe {
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+}
+
+.pr-safe {
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+}
+
+/* Dynamic viewport height utilities to prevent address-bar jitter */
+.h-dvh {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.min-h-dvh {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.max-h-dvh {
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+
+/* Fluid responsive container */
+.responsive-container {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: clamp(0.75rem, 3vw, 2.5rem);
+  padding-right: clamp(0.75rem, 3vw, 2.5rem);
+}
+
+/* Table containment: tables scroll internally horizontally if needed, preventing whole page scroll */
+.table-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch friendly hit area target */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Media elements fluid constraint */
+img, video {
+  max-width: 100%;
+}
+

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield,
@@ -23,6 +24,37 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { setClientSession, DEMO_ACCOUNTS, ROLE_REDIRECTS, type AuthUser } from '@/lib/auth';
+
+function getSafeRedirectUrl(target: string | null, userRole: string): string {
+  const roleDefault = ROLE_REDIRECTS[userRole as keyof typeof ROLE_REDIRECTS] || '/';
+  if (!target) return roleDefault;
+
+  // Prevent open redirect: target must start with '/' and not '//' or 'http'
+  if (!target.startsWith('/') || target.startsWith('//')) {
+    return roleDefault;
+  }
+
+  // Prevent role escalation redirect (e.g. customer redirected to /admin or waiter to /owner)
+  const isProtectedAdmin = target.startsWith('/admin') || target.startsWith('/owner');
+  const isProtectedKitchen = target.startsWith('/kitchen') || target.startsWith('/chef');
+  const isProtectedWaiter = target.startsWith('/waiter');
+  const isProtectedReception = target.startsWith('/reception/dashboard');
+
+  if (isProtectedAdmin && !['owner', 'admin', 'manager', 'accountant'].includes(userRole)) {
+    return roleDefault;
+  }
+  if (isProtectedKitchen && !['chef', 'kitchen', 'owner', 'admin', 'manager'].includes(userRole)) {
+    return roleDefault;
+  }
+  if (isProtectedWaiter && !['waiter', 'owner', 'admin', 'manager'].includes(userRole)) {
+    return roleDefault;
+  }
+  if (isProtectedReception && !['receptionist', 'reception', 'owner', 'admin', 'manager'].includes(userRole)) {
+    return roleDefault;
+  }
+
+  return target;
+}
 
 function UnifiedLoginContent() {
   const router = useRouter();
@@ -64,8 +96,8 @@ function UnifiedLoginContent() {
       const user: AuthUser = data.user;
       setClientSession(user);
 
-      // Handle redirect
-      const destination = redirectParam || data.redirectTo || ROLE_REDIRECTS[user.role] || '/';
+      // Safe redirect validation (prevents open redirects and role escalation)
+      const destination = getSafeRedirectUrl(redirectParam, user.role);
       router.push(destination);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Authentication failed. Please check credentials.');
@@ -91,7 +123,7 @@ function UnifiedLoginContent() {
       const user: AuthUser = data.user;
       setClientSession(user);
 
-      const destination = redirectParam || data.redirectTo || ROLE_REDIRECTS[user.role] || '/';
+      const destination = getSafeRedirectUrl(redirectParam, user.role);
       router.push(destination);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Login failed.');
@@ -120,8 +152,15 @@ function UnifiedLoginContent() {
 
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-[#C5A880]/10 border border-[#C5A880]/25 shadow-warm flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-[#C5A880]" />
+              <div className="w-16 h-16 rounded-2xl bg-[#0A0A0A] border border-[#C5A880]/35 shadow-warm flex items-center justify-center mx-auto mb-4 overflow-hidden p-2">
+                <Image
+                  src="/logo.png"
+                  alt="PRATHOMIX"
+                  width={56}
+                  height={56}
+                  className="w-full h-full object-contain"
+                  priority
+                />
               </div>
               <p className="text-[10px] uppercase tracking-[0.35em] text-[#C5A880] font-semibold mb-1">
                 Unified Portal
@@ -187,7 +226,7 @@ function UnifiedLoginContent() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="owner@prathomix.com"
+                        placeholder="owner@prathomix.tech"
                         className="w-full bg-[#121212]/80 border border-[#C5A880]/20 focus:border-[#C5A880] rounded-xl px-4 py-3 pl-11 text-sm text-[#EAE6DF] placeholder-[#EAE6DF]/30 outline-none transition-all focus:shadow-warm"
                       />
                       <Mail className="w-4 h-4 text-[#C5A880]/60 absolute left-4 top-1/2 -translate-y-1/2" />

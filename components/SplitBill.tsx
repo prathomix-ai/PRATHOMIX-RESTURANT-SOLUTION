@@ -38,7 +38,7 @@ export default function SplitBill({ total, onConfirm }: Props) {
   }
 
   return (
-    <div className="glass rounded-2xl p-6 border border-warm-200 shadow-warm">
+    <div className="glass rounded-2xl p-4 sm:p-6 border border-warm-200 shadow-warm">
       <h3
         className="font-display text-lg font-semibold gradient-text mb-5 flex items-center gap-2"
         style={{ fontFamily: 'Cinzel, serif' }}>

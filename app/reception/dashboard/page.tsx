@@ -26,9 +26,13 @@ import {
   Brush,
   Receipt,
   UserCheck,
+  Settings,
 } from 'lucide-react';
 import { supabase, RESTAURANT_TABLES, DEFAULT_RESTAURANT_ID, type Booking } from '@/lib/supabase';
 import { clearClientSession } from '@/lib/auth';
+import RoleOnboardingTutorial from '@/components/RoleOnboardingTutorial';
+import StaffSettingsModal from '@/components/StaffSettingsModal';
+import StaffPresenceHeartbeat from '@/components/StaffPresenceHeartbeat';
 
 type TableStatus = 'available' | 'occupied' | 'reserved' | 'cleaning' | 'billing';
 
@@ -69,6 +73,7 @@ export default function ReceptionDashboardPage() {
   const [tables, setTables] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Walk-in / Reservation form modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -87,13 +92,44 @@ export default function ReceptionDashboardPage() {
   const loadData = useCallback(async () => {
     setRefreshing(true);
     try {
+      const restId = typeof window !== 'undefined'
+        ? localStorage.getItem('prathomix_restaurant_id') || '10000000-0000-0000-0000-000000000001'
+        : '10000000-0000-0000-0000-000000000001';
+
+      // Load bookings from yesterday onwards (limit 100) to avoid downloading entire historical database
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+      let bookingQuery = supabase
+        .from(RESTAURANT_TABLES.bookings)
+        .select('id, name, customer_name, phone, guests, date, time, table_number, status, special_requests, created_at')
+        .gte('date', yesterday)
+        .order('date', { ascending: true })
+        .limit(100);
+
+      let orderQuery = supabase
+        .from(RESTAURANT_TABLES.orders)
+        .select('id, order_number, table_number, status, total_amount, created_at')
+        .in('status', ['placed', 'preparing', 'ready', 'served'])
+        .order('created_at', { ascending: false })
+        .limit(60);
+
+      let tableQuery = supabase
+        .from(RESTAURANT_TABLES.restaurantTables)
+        .select('id, table_number, capacity, section, status')
+        .order('table_number', { ascending: true });
+
+      if (restId) {
+        bookingQuery = bookingQuery.or(`restaurant_id.eq.${restId},restaurant_id.is.null`);
+        orderQuery = orderQuery.or(`restaurant_id.eq.${restId},restaurant_id.is.null`);
+      }
+
       const [bookingRes, orderRes, tableRes] = await Promise.all([
-        supabase.from(RESTAURANT_TABLES.bookings).select('*').order('date', { ascending: true }),
-        supabase.from(RESTAURANT_TABLES.orders).select('*').in('status', ['placed', 'preparing', 'ready', 'served']),
-        supabase.from(RESTAURANT_TABLES.restaurantTables).select('*').order('table_number', { ascending: true }),
+        bookingQuery,
+        orderQuery,
+        tableQuery,
       ]);
 
-      if (bookingRes.data) setBookings(bookingRes.data);
+      if (bookingRes.data) setBookings(bookingRes.data as any);
       if (orderRes.data) setOrders(orderRes.data);
 
       if (tableRes.data && tableRes.data.length > 0) {
@@ -119,17 +155,36 @@ export default function ReceptionDashboardPage() {
 
   useEffect(() => {
     loadData();
+    // Gentle 30-second fallback sync
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      loadData();
+    }, 30000);
+    return () => clearInterval(interval);
   }, [loadData]);
 
-  // Real-time listener for bookings & tables
+  // Real-time listener for bookings & tables with debouncing
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null;
+
     const channel = supabase
       .channel('reception-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: RESTAURANT_TABLES.bookings }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: RESTAURANT_TABLES.orders }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: RESTAURANT_TABLES.bookings }, () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          loadData();
+        }, 350);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: RESTAURANT_TABLES.orders }, () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          loadData();
+        }, 350);
+      })
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, [loadData]);
@@ -264,32 +319,34 @@ export default function ReceptionDashboardPage() {
   return (
     <main className="min-h-screen bg-[#0A0A0A] text-[#EAE6DF] pb-16">
       {/* Top Reception Header */}
-      <header className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-xl border-b border-[#C5A880]/20 px-4 py-3.5 shadow-xl">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#C5A880]/15 border border-[#C5A880]/30 flex items-center justify-center text-[#C5A880]">
-              <TableIcon className="w-5 h-5" />
+      <header
+        data-tour="reception-header"
+        className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-xl border-b border-[#C5A880]/20 px-3 sm:px-4 py-2.5 sm:py-3.5 shadow-xl">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#C5A880]/15 border border-[#C5A880]/30 flex items-center justify-center text-[#C5A880] flex-shrink-0">
+              <TableIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="font-display font-bold text-base tracking-wide text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
+                <h1 className="font-display font-bold text-sm sm:text-base tracking-wide text-[#EAE6DF] truncate" style={{ fontFamily: 'Cinzel, serif' }}>
                   RECEPTION &amp; CONCIERGE
                 </h1>
-                <span className="text-[10px] bg-[#C5A880]/15 text-[#C5A880] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                <span className="text-[9px] sm:text-[10px] bg-[#C5A880]/15 text-[#C5A880] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex-shrink-0">
                   Front Desk
                 </span>
               </div>
-              <p className="text-xs text-[#EAE6DF]/60">Live Floor Plan · Seating Control · Guest Bookings</p>
+              <p className="text-[11px] sm:text-xs text-[#EAE6DF]/60 hidden xs:block truncate">Live Floor Plan · Seating Control · Guest Bookings</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
               onClick={() => {
                 setActiveTab('walkin');
                 setModalOpen(true);
               }}
-              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider shadow-warm hover:brightness-110 transition-all">
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider shadow-warm hover:brightness-110 transition-all">
               <UserPlus className="w-3.5 h-3.5" /> Fast Walk-in
             </button>
 
@@ -297,70 +354,78 @@ export default function ReceptionDashboardPage() {
               onClick={loadData}
               disabled={refreshing}
               title="Refresh Floor Data"
-              className="w-9 h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[#C5A880]' : ''}`} />
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${refreshing ? 'animate-spin text-[#C5A880]' : ''}`} />
+            </button>
+
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title="Reception Settings"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-[#C5A880] flex items-center justify-center text-[#EAE6DF]/70 hover:text-[#C5A880] transition-all">
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             <button
               onClick={handleLogout}
               title="Exit Reception"
-              className="w-9 h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-rose-500/40 flex items-center justify-center text-[#EAE6DF]/70 hover:text-rose-400 transition-all">
-              <LogOut className="w-4 h-4" />
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] border border-[#C5A880]/20 hover:border-rose-500/40 flex items-center justify-center text-[#EAE6DF]/70 hover:text-rose-400 transition-all">
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 pt-5 space-y-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 pt-4 sm:pt-5 space-y-5 sm:space-y-6 pb-safe">
         {/* Metric Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-          <div className="glass-dark border border-[#C5A880]/20 rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <TableIcon className="w-5 h-5" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3.5">
+          <div data-tour="reception-available-table" className="glass-dark border border-[#C5A880]/20 rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
+              <TableIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <p className="text-xl font-bold text-emerald-400">{stats.availableCount}</p>
-              <span className="text-[11px] text-[#EAE6DF]/60 uppercase tracking-wider">Available Tables</span>
+              <p className="text-lg sm:text-xl font-bold text-emerald-400">{stats.availableCount}</p>
+              <span className="text-[10px] sm:text-[11px] text-[#EAE6DF]/60 uppercase tracking-wider block">Available Tables</span>
             </div>
           </div>
 
-          <div className="glass-dark border border-[#C5A880]/20 rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-              <Coffee className="w-5 h-5" />
+          <div data-tour="reception-occupied-table" className="glass-dark border border-[#C5A880]/20 rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+              <Coffee className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <p className="text-xl font-bold text-amber-400">{stats.seatedCount}</p>
-              <span className="text-[11px] text-[#EAE6DF]/60 uppercase tracking-wider">Seated Guests</span>
+              <p className="text-lg sm:text-xl font-bold text-amber-400">{stats.seatedCount}</p>
+              <span className="text-[10px] sm:text-[11px] text-[#EAE6DF]/60 uppercase tracking-wider block">Seated Guests</span>
             </div>
           </div>
 
-          <div className="glass-dark border border-[#C5A880]/20 rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-              <CalendarDays className="w-5 h-5" />
+          <div className="glass-dark border border-[#C5A880]/20 rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 flex-shrink-0">
+              <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <p className="text-xl font-bold text-sky-400">{stats.reservedCount}</p>
-              <span className="text-[11px] text-[#EAE6DF]/60 uppercase tracking-wider">Reserved</span>
+              <p className="text-lg sm:text-xl font-bold text-sky-400">{stats.reservedCount}</p>
+              <span className="text-[10px] sm:text-[11px] text-[#EAE6DF]/60 uppercase tracking-wider block">Reserved</span>
             </div>
           </div>
 
-          <div className="glass-dark border border-[#C5A880]/20 rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#C5A880]/10 border border-[#C5A880]/20 flex items-center justify-center text-[#C5A880]">
-              <Users className="w-5 h-5" />
+          <div className="glass-dark border border-[#C5A880]/20 rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#C5A880]/10 border border-[#C5A880]/20 flex items-center justify-center text-[#C5A880] flex-shrink-0">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <p className="text-xl font-bold text-[#C5A880]">{stats.totalGuests}</p>
-              <span className="text-[11px] text-[#EAE6DF]/60 uppercase tracking-wider">Today&apos;s Covers</span>
+              <p className="text-lg sm:text-xl font-bold text-[#C5A880]">{stats.totalGuests}</p>
+              <span className="text-[10px] sm:text-[11px] text-[#EAE6DF]/60 uppercase tracking-wider block">Today&apos;s Covers</span>
             </div>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex gap-2 border-b border-[#C5A880]/15 pb-2">
+        <div className="flex gap-2 border-b border-[#C5A880]/15 pb-2 overflow-x-auto scrollbar-none">
           <button
+            data-tour="reception-table-map"
             onClick={() => setActiveTab('floor')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 sm:gap-2 min-h-[44px] flex-shrink-0 whitespace-nowrap ${
               activeTab === 'floor'
                 ? 'bg-[#C5A880] text-[#0A0A0A] shadow-md'
                 : 'text-[#EAE6DF]/60 hover:text-[#EAE6DF]'
@@ -368,8 +433,9 @@ export default function ReceptionDashboardPage() {
             <TableIcon className="w-4 h-4" /> Live Floor Layout
           </button>
           <button
+            data-tour="reception-reservations"
             onClick={() => setActiveTab('bookings')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 sm:gap-2 min-h-[44px] flex-shrink-0 whitespace-nowrap ${
               activeTab === 'bookings'
                 ? 'bg-[#C5A880] text-[#0A0A0A] shadow-md'
                 : 'text-[#EAE6DF]/60 hover:text-[#EAE6DF]'
@@ -377,99 +443,102 @@ export default function ReceptionDashboardPage() {
             <CalendarDays className="w-4 h-4" /> Reservations List ({bookings.length})
           </button>
           <button
+            data-tour="reception-walkin"
             onClick={() => {
               setActiveTab('walkin');
               setModalOpen(true);
             }}
-            className="ml-auto px-4 py-2 rounded-xl bg-[#121212] border border-[#C5A880]/30 hover:border-[#C5A880] text-[#C5A880] text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all">
+            className="ml-auto px-3.5 sm:px-4 py-2 rounded-xl bg-[#121212] border border-[#C5A880]/30 hover:border-[#C5A880] text-[#C5A880] text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 min-h-[44px] flex-shrink-0 whitespace-nowrap transition-all">
             <PlusCircle className="w-4 h-4" /> New Booking
           </button>
         </div>
 
-        {/* View 1: Live Interactive Floor Layout */}
+        {/* View 1: Live Interactive Floor Layout with Internal Scroll Containment */}
         {activeTab === 'floor' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-[#EAE6DF]/60">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#EAE6DF]/60">
               <span>Interactive table control — Click table for status update or quick seating</span>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {Object.entries(STATUS_CONFIG).map(([stKey, cfg]) => (
-                  <span key={stKey} className="flex items-center gap-1.5">
+                  <span key={stKey} className="flex items-center gap-1">
                     <span className={`w-2 h-2 rounded-full border ${cfg.badgeClass}`} />
-                    <span className="capitalize">{cfg.label}</span>
+                    <span className="capitalize text-[11px] sm:text-xs">{cfg.label}</span>
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
-              {tables.map((tbl) => {
-                const currentStatus: TableStatus = (tbl.status?.toLowerCase() || 'available') as TableStatus;
-                const cfg = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.available;
+            <div className="table-scroll-container">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
+                {tables.map((tbl) => {
+                  const currentStatus: TableStatus = (tbl.status?.toLowerCase() || 'available') as TableStatus;
+                  const cfg = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.available;
 
-                return (
-                  <motion.div
-                    key={tbl.table_number}
-                    whileHover={{ scale: 1.02 }}
-                    onClick={() => setActionTable(tbl)}
-                    className={`glass-dark rounded-2xl p-4 border transition-all cursor-pointer relative group ${cfg.cardClass}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-base text-[#EAE6DF]">Table {tbl.table_number}</span>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${cfg.badgeClass}`}>
-                        {cfg.label}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1 text-xs text-[#EAE6DF]/60 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-[#C5A880]" />
-                        <span>Seats {tbl.capacity || 4} guests</span>
+                  return (
+                    <motion.div
+                      key={tbl.table_number}
+                      whileHover={{ scale: 1.02 }}
+                      onClick={() => setActionTable(tbl)}
+                      className={`glass-dark rounded-2xl p-3 sm:p-4 border transition-all cursor-pointer relative group ${cfg.cardClass}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-sm sm:text-base text-[#EAE6DF]">Table {tbl.table_number}</span>
+                        <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${cfg.badgeClass}`}>
+                          {cfg.label}
+                        </span>
                       </div>
-                      <p className="text-[11px] text-[#EAE6DF]/50">{tbl.section || 'Main Dining'}</p>
-                    </div>
 
-                    {/* Quick status bar */}
-                    <div className="flex gap-1 pt-2 border-t border-[#C5A880]/10">
-                      {currentStatus === 'available' ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleQuickWalkIn(tbl.table_number);
-                          }}
-                          className="w-full py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 font-bold text-[10px] uppercase tracking-wider transition-all">
-                          Seat Walk-in
-                        </button>
-                      ) : currentStatus === 'occupied' ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateTableStatus(tbl.table_number, 'billing');
-                          }}
-                          className="w-full py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 font-bold text-[10px] uppercase tracking-wider transition-all">
-                          Request Bill
-                        </button>
-                      ) : currentStatus === 'cleaning' ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateTableStatus(tbl.table_number, 'available');
-                          }}
-                          className="w-full py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 font-bold text-[10px] uppercase tracking-wider transition-all">
-                          Cleaned &amp; Ready
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateTableStatus(tbl.table_number, 'available');
-                          }}
-                          className="w-full py-1.5 rounded-lg bg-[#C5A880]/15 hover:bg-[#C5A880]/30 text-[#C5A880] font-bold text-[10px] uppercase tracking-wider transition-all">
-                          Set Available
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
+                      <div className="space-y-1 text-xs text-[#EAE6DF]/60 mb-3">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-[#C5A880]" />
+                          <span>Seats {tbl.capacity || 4} guests</span>
+                        </div>
+                        <p className="text-[11px] text-[#EAE6DF]/50">{tbl.section || 'Main Dining'}</p>
+                      </div>
+
+                      {/* Quick status bar */}
+                      <div className="flex gap-1 pt-2 border-t border-[#C5A880]/10">
+                        {currentStatus === 'available' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickWalkIn(tbl.table_number);
+                            }}
+                            className="w-full py-2 min-h-[38px] sm:min-h-[44px] rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-300 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center">
+                            Seat Walk-in
+                          </button>
+                        ) : currentStatus === 'occupied' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateTableStatus(tbl.table_number, 'billing');
+                            }}
+                            className="w-full py-2 min-h-[38px] sm:min-h-[44px] rounded-lg bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center">
+                            Request Bill
+                          </button>
+                        ) : currentStatus === 'cleaning' ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateTableStatus(tbl.table_number, 'available');
+                            }}
+                            className="w-full py-2 min-h-[38px] sm:min-h-[44px] rounded-lg bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center">
+                            Cleaned &amp; Ready
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateTableStatus(tbl.table_number, 'available');
+                            }}
+                            className="w-full py-2 min-h-[38px] sm:min-h-[44px] rounded-lg bg-[#C5A880]/15 hover:bg-[#C5A880]/30 text-[#C5A880] font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center">
+                            Set Available
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -756,6 +825,19 @@ export default function ReceptionDashboardPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Reception Onboarding Guided Tour */}
+      <RoleOnboardingTutorial role="receptionist" />
+
+      {/* Receptionist Dedicated Settings */}
+      <StaffSettingsModal
+        role="receptionist"
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+
+      {/* Realtime Staff Presence Heartbeat */}
+      <StaffPresenceHeartbeat role="receptionist" userId="REC-01" userName="Elena Rostova" />
     </main>
   );
 }

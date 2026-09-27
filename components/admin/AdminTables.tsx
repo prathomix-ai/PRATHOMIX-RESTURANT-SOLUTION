@@ -95,7 +95,7 @@ export default function AdminTables({ tables, onRefresh }: Props) {
       </div>
 
       {/* Tables Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
         {tables.map((tbl) => {
           const qrLink = `${baseUrl}/menu?table=${tbl.table_number}`;
 
@@ -142,11 +142,11 @@ export default function AdminTables({ tables, onRefresh }: Props) {
 
       {/* QR Code Standee Modal */}
       {qrModalTable && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="glass-dark border border-[#C5A880]/40 rounded-3xl p-8 max-w-sm w-full text-center space-y-5 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass-dark border border-[#C5A880]/40 rounded-2xl sm:rounded-3xl p-4 sm:p-8 max-w-sm w-full max-h-[90dvh] overflow-y-auto text-center space-y-4 sm:space-y-5 shadow-2xl relative">
             <button
               onClick={() => setQrModalTable(null)}
-              className="absolute right-4 top-4 p-1 text-[#EAE6DF]/60 hover:text-[#EAE6DF]">
+              className="absolute right-3 sm:right-4 top-3 sm:top-4 p-1 rounded-lg text-[#EAE6DF]/60 hover:text-[#EAE6DF] min-w-[32px] min-h-[32px] flex items-center justify-center">
               <X className="w-5 h-5" />
             </button>
 
@@ -197,13 +197,13 @@ export default function AdminTables({ tables, onRefresh }: Props) {
 
       {/* Add Table Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="glass-dark border border-[#C5A880]/30 rounded-3xl p-6 max-w-sm w-full space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
+          <div className="glass-dark border border-[#C5A880]/30 rounded-2xl sm:rounded-3xl p-4 sm:p-6 max-w-sm w-full max-h-[90dvh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#C5A880]/15">
               <h3 className="font-display font-bold text-lg text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
                 Add Floor Table
               </h3>
-              <button onClick={() => setModalOpen(false)} className="p-1 text-[#EAE6DF]/60 hover:text-[#EAE6DF]">
+              <button onClick={() => setModalOpen(false)} className="p-1 rounded-lg text-[#EAE6DF]/60 hover:text-[#EAE6DF] min-w-[32px] min-h-[32px] flex items-center justify-center">
                 <X className="w-4 h-4" />
               </button>
             </div>

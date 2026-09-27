@@ -1,9 +1,19 @@
 import { NextResponse } from 'next/server';
 import { supabase, RESTAURANT_TABLES, DEFAULT_RESTAURANT_ID, type UserRole } from '@/lib/supabase';
 import { DEMO_ACCOUNTS, ROLE_REDIRECTS, type AuthUser } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rateCheck = checkRateLimit(ip, 'auth');
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please wait a moment before trying again.' },
+        { status: 429, headers: { 'Retry-After': rateCheck.retryAfterHeader || '60' } }
+      );
+    }
+
     const body = await req.json();
     const { email, password, employee_code, passcode, quick_role } = body;
 
@@ -32,9 +42,16 @@ export async function POST(req: Request) {
 
     // 2. Check employee code / passcode login (e.g. Waiter W-1001, Reception REC-01)
     if (!matchedUser && cleanCode) {
+      if (!cleanPasscode) {
+        return NextResponse.json(
+          { error: 'Passcode is required for employee badge login.' },
+          { status: 400 }
+        );
+      }
+
       // Check in demo accounts first
       const demo = DEMO_ACCOUNTS.find(
-        (acc) => acc.employee_code?.toUpperCase() === cleanCode && (acc.passcode === cleanPasscode || !cleanPasscode)
+        (acc) => acc.employee_code?.toUpperCase() === cleanCode && acc.passcode === cleanPasscode
       );
       if (demo) {
         matchedUser = {
@@ -54,7 +71,7 @@ export async function POST(req: Request) {
           .eq('employee_code', cleanCode)
           .maybeSingle();
 
-        if (data && (!data.passcode || data.passcode === cleanPasscode || !cleanPasscode)) {
+        if (data && data.passcode && data.passcode === cleanPasscode) {
           const role = (data.role?.toLowerCase() || 'waiter') as UserRole;
           matchedUser = {
             id: data.id,
@@ -108,9 +125,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. Check legacy staff_access passcodes (e.g. prathomix2024, reception2026, kitchen2026)
-    if (!matchedUser && cleanPassword) {
-      if (cleanPassword === 'prathomix2024') {
+    // 4. Check dedicated staff access passcodes with matching staff accounts
+    if (!matchedUser && cleanPassword && cleanEmail) {
+      if (cleanPassword === 'prathomix2024' && cleanEmail === 'admin@prathomix.tech') {
         matchedUser = {
           id: 'admin-legacy-001',
           restaurant_id: DEFAULT_RESTAURANT_ID,
@@ -119,33 +136,65 @@ export async function POST(req: Request) {
           email: 'admin@prathomix.tech',
           status: 'active',
         };
-      } else if (cleanPassword === 'reception2026') {
+      } else if (cleanPassword === 'reception2026' && cleanEmail === 'reception@prathomix.tech') {
         matchedUser = {
           id: 'reception-legacy-001',
           restaurant_id: DEFAULT_RESTAURANT_ID,
           role: 'receptionist',
           name: 'Front Desk Host',
-          email: 'reception@prathomix.com',
+          email: 'reception@prathomix.tech',
           status: 'active',
         };
-      } else if (cleanPassword === 'kitchen2026') {
+      } else if (cleanPassword === 'kitchen2026' && cleanEmail === 'chef@prathomix.tech') {
         matchedUser = {
           id: 'kitchen-legacy-001',
           restaurant_id: DEFAULT_RESTAURANT_ID,
           role: 'chef',
           name: 'Head Chef',
-          email: 'chef@prathomix.com',
+          email: 'chef@prathomix.tech',
           status: 'active',
         };
       }
     }
 
+    const userAgent = req.headers.get('user-agent') || 'Browser';
+    const isMobile = /mobile|iphone|android/i.test(userAgent);
+    const isTablet = /ipad|tablet/i.test(userAgent);
+    const deviceType = isTablet ? 'Tablet' : isMobile ? 'Mobile' : 'Desktop';
+
     if (!matchedUser) {
+      // Record failed login attempt for security monitoring
+      try {
+        await supabase.from(RESTAURANT_TABLES.auditLogs).insert({
+          restaurant_id: DEFAULT_RESTAURANT_ID,
+          user_name: cleanEmail || cleanCode || 'Unknown Identifier',
+          user_role: 'system',
+          action: 'LOGIN_FAILED',
+          entity: 'SECURITY',
+          details: `Failed authentication attempt from ${deviceType} (${userAgent.slice(0, 80)})`,
+          created_at: new Date().toISOString(),
+        });
+      } catch {}
+
       return NextResponse.json(
         { error: 'Invalid email/password or employee code. Please verify credentials and try again.' },
         { status: 401 }
       );
     }
+
+    // Record successful login activity
+    try {
+      await supabase.from(RESTAURANT_TABLES.auditLogs).insert({
+        restaurant_id: DEFAULT_RESTAURANT_ID,
+        user_id: matchedUser.id,
+        user_name: matchedUser.name,
+        user_role: matchedUser.role,
+        action: 'LOGIN_SUCCESS',
+        entity: 'AUTHENTICATION',
+        details: `Logged in via ${deviceType} (${userAgent.slice(0, 60)})`,
+        created_at: new Date().toISOString(),
+      });
+    } catch {}
 
     const redirectTo = ROLE_REDIRECTS[matchedUser.role] || '/';
 

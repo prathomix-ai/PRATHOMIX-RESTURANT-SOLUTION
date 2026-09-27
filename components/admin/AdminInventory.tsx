@@ -498,12 +498,12 @@ export default function AdminInventory() {
       {/* Modal: Add / Edit Item */}
       <AnimatePresence>
         {itemModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg rounded-2xl bg-[#121212] border border-[#C5A880]/30 shadow-2xl p-6 relative">
+              className="w-full max-w-lg rounded-2xl bg-[#121212] border border-[#C5A880]/30 shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto relative">
               <div className="flex items-center justify-between pb-4 border-b border-[#C5A880]/15">
                 <h3
                   className="text-lg font-bold text-[#EAE6DF] tracking-wide"
@@ -644,12 +644,12 @@ export default function AdminInventory() {
       {/* Modal: Quick Stock Adjustment */}
       <AnimatePresence>
         {adjustModalOpen && selectedItem && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md rounded-2xl bg-[#121212] border border-[#C5A880]/30 shadow-2xl p-6 relative">
+              className="w-full max-w-md rounded-2xl bg-[#121212] border border-[#C5A880]/30 shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto relative">
               <div className="flex items-center justify-between pb-3 border-b border-[#C5A880]/15">
                 <div>
                   <h3

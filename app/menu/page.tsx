@@ -135,23 +135,23 @@ function MenuContent() {
   return (
     <>
       <Navbar />
-      <main className="pt-24 pb-16 px-4 max-w-[96rem] mx-auto">
+      <main className="pt-20 sm:pt-28 pb-16 px-3.5 sm:px-6 max-w-[96rem] mx-auto">
 
         {/* Header */}
         <motion.div
-          className="text-center mb-12"
+          className="text-center mb-8 sm:mb-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}>
-          <p className="text-xs text-primary-600 uppercase tracking-widest mb-2 font-medium">
+          <p className="text-xs text-[#C5A880] uppercase tracking-widest mb-2 font-medium">
             Curated for your goals
           </p>
           <h1
-            className="font-display text-4xl sm:text-5xl font-bold gradient-text mb-4"
+            className="font-display text-3xl sm:text-5xl font-bold gradient-text mb-3 sm:mb-4"
             style={{ fontFamily: 'Cinzel, serif' }}>
             Our Menu
           </h1>
-          <p className="text-stone-500 text-sm">
+          <p className="text-[#EAE6DF]/60 text-xs sm:text-sm max-w-md mx-auto">
             Filter by nutrition goals · Ask Mix for AI-powered personalized picks
           </p>
 
@@ -159,7 +159,7 @@ function MenuContent() {
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="mt-5 inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#C5A880]/15 border border-[#C5A880]/40 text-[#C5A880] text-xs font-semibold shadow-warm">
+              className="mt-4 sm:mt-5 inline-flex items-center gap-2.5 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full bg-[#C5A880]/15 border border-[#C5A880]/40 text-[#C5A880] text-xs font-semibold shadow-warm">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               Table {tableParam} Connected — Orders sent will arrive directly at your table
             </motion.div>
@@ -171,34 +171,36 @@ function MenuContent() {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.62, delay: 0.04, ease: [0.22, 1, 0.36, 1] }}
-          className="flex flex-col sm:flex-row gap-4 mb-8">
+          className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C5A880]/60" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search dishes…"
-              className="w-full pl-10 pr-4 py-2.5 glass border border-warm-200
-                         focus:border-primary-400/50 rounded-xl text-sm text-primary-900
-                         placeholder-stone-400 outline-none transition-all focus:shadow-warm" />
+              className="w-full pl-10 pr-4 py-2.5 bg-[#121212]/80 border border-[#C5A880]/20
+                         focus:border-[#C5A880] rounded-xl text-sm text-[#EAE6DF]
+                         placeholder-[#EAE6DF]/40 outline-none transition-all focus:shadow-warm" />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <SlidersHorizontal className="w-4 h-4 text-stone-500 flex-shrink-0" />
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full flex-nowrap sm:flex-wrap">
+            <SlidersHorizontal className="w-4 h-4 text-[#C5A880]/70 flex-shrink-0" />
             {CATEGORIES.map((c) => (
               <button
                 key={c}
+                type="button"
                 onClick={() => setCategory(c)}
-                className={`lift-3d px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300
+                className={`lift-3d px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 flex-shrink-0 whitespace-nowrap min-h-[38px] sm:min-h-[44px] flex items-center justify-center
                              ${category === c
-                               ? 'bg-primary-600/10 border border-primary-400/40 text-primary-700 shadow-warm'
-                               : 'glass border border-warm-200 text-stone-600 hover:border-primary-400/30 hover:text-primary-700'}`}>
+                                ? 'bg-[#C5A880] text-[#0A0A0A] font-bold shadow-warm'
+                                : 'glass-dark border border-[#C5A880]/20 text-[#EAE6DF]/70 hover:border-[#C5A880]/50 hover:text-[#EAE6DF]'}`}>
                 {c}
               </button>
             ))}
           </div>
         </motion.div>
 
-        <div className="mb-4 flex items-center justify-between text-xs text-stone-500 paint-boost">
+        <div className="mb-4 flex items-center justify-between text-xs text-[#EAE6DF]/50 paint-boost">
           <span>
             {loading
               ? 'Loading menu from Supabase...'
@@ -207,26 +209,31 @@ function MenuContent() {
           <span>{dishes.length} total in table</span>
         </div>
 
-        {/* Grid */}
+        {/* Fluid Responsive Grid — 1 col on small phones, 2 on phablets/tablets, 3-5 on desktop */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 paint-boost">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] sm:grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3.5 sm:gap-5 lg:gap-6 paint-boost">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-64 glass rounded-2xl animate-pulse border border-slate-800 float-y-slow" />
+              <div key={i} className="h-64 glass-dark rounded-2xl animate-pulse border border-[#C5A880]/15" />
             ))}
           </div>
         ) : error ? (
-          <div className="text-center py-20 text-amber-900">
+          <div className="text-center py-20 text-[#C5A880]">
             Could not load dishes: {error}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-stone-500">
+          <div className="text-center py-20 text-[#EAE6DF]/50">
             No dishes match your current filter.
           </div>
         ) : (
-          <motion.div layout variants={gridVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-5 paint-boost">
-            {filtered.map((dish) => (
+          <motion.div
+            layout
+            variants={gridVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] sm:grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3.5 sm:gap-5 lg:gap-6 paint-boost">
+            {filtered.map((dish, i) => (
               <motion.div key={dish.id} layout variants={itemVariants}>
-                <DishCard dish={dish} />
+                <DishCard dish={dish} index={i} />
               </motion.div>
             ))}
           </motion.div>
