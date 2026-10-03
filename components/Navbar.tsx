@@ -59,7 +59,7 @@ export default function Navbar() {
     { href: '/',            label: 'Home'    },
     { href: '/menu',        label: 'Menu'    },
     { href: '/reservation', label: 'Reserve' },
-    { href: '/cart',        label: 'Order'   },
+    { href: '/order',       label: 'Order'   },
   ];
 
   return (

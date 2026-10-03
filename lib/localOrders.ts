@@ -36,7 +36,7 @@ export function getLocalOrders() {
 
 export function addLocalOrder(order: LocalOrder) {
   const orders = readOrders();
-  writeOrders([order, ...orders]);
+  writeOrders([order, ...orders.filter((o) => o.id !== order.id)]);
 }
 
 export function updateLocalOrderStatus(orderId: string, status: string) {

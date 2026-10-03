@@ -1,19 +1,21 @@
 'use client';
+
 import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, X, Plus, Minus, Trash2, ArrowRight } from 'lucide-react';
+import { ShoppingCart, X, Plus, Minus, Trash2, ArrowRight, RotateCcw } from 'lucide-react';
 import { useCartStore } from '@/lib/store';
+import CompleteYourMeal from './CompleteYourMeal';
 
 export default function CartDrawer() {
-  const { items, drawerOpen, setDrawerOpen, updateQty, removeItem, total } = useCartStore();
+  const { items, drawerOpen, setDrawerOpen, updateQty, removeItem, clearCart, total } = useCartStore();
 
   const subtotal = total();
-  const tax = subtotal * 0.05;
-  const grandTotal = subtotal + tax;
+  const tax = Math.round(subtotal * 0.05 * 100) / 100;
+  const grandTotal = Math.round((subtotal + tax) * 100) / 100;
 
-  // Lock background scroll when drawer is open on mobile
+  // Lock background scroll when drawer is open
   useEffect(() => {
     if (drawerOpen) {
       document.body.style.overflow = 'hidden';
@@ -28,7 +30,7 @@ export default function CartDrawer() {
   return (
     <AnimatePresence>
       {drawerOpen && (
-        <div className="fixed inset-0 z-[100] flex justify-end">
+        <div className="fixed inset-0 z-[100] flex justify-end items-end sm:items-stretch">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -36,55 +38,73 @@ export default function CartDrawer() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
             onClick={() => setDrawerOpen(false)}
-            className="fixed inset-0 bg-black/75 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
           />
 
-          {/* Drawer Panel */}
+          {/* Drawer Panel: Bottom-sheet on mobile, right drawer on desktop */}
           <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            initial={{ y: '100%', x: 0 }}
+            animate={{ y: 0, x: 0 }}
+            exit={{ y: '100%', x: 0 }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="relative w-full max-w-md h-full bg-[#0E0E0E] border-l border-[#C5A880]/20 flex flex-col shadow-2xl z-10 overflow-hidden text-[#EAE6DF]"
+            className="relative w-full sm:max-w-md max-h-[90vh] sm:max-h-full h-full bg-[#0E0E0E] sm:border-l border-t sm:border-t-0 border-[#C5A880]/20 rounded-t-3xl sm:rounded-none flex flex-col shadow-2xl z-10 overflow-hidden text-[#EAE6DF]"
           >
+            {/* Mobile Sheet Drag Indicator */}
+            <div className="sm:hidden flex justify-center pt-2.5 pb-1">
+              <div className="w-12 h-1 rounded-full bg-white/20" />
+            </div>
+
             {/* Header */}
-            <div className="p-4 sm:p-5 border-b border-[#C5A880]/15 flex items-center justify-between bg-[#121212]/90 flex-shrink-0">
+            <div className="p-4 sm:p-5 border-b border-[#C5A880]/15 flex items-center justify-between bg-[#121212]/95 flex-shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#C5A880]/15 border border-[#C5A880]/30 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-[#C5A880]/15 border border-[#C5A880]/30 flex items-center justify-center shadow-warm">
                   <ShoppingCart className="w-4 h-4 text-[#C5A880]" />
                 </div>
                 <div>
-                  <h2 className="font-display text-lg font-bold text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
+                  <h2 className="font-display text-base sm:text-lg font-bold text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
                     Your Dining Cart
                   </h2>
                   <p className="text-[11px] text-[#EAE6DF]/60">
-                    {items.length} unique dish{items.length !== 1 ? 'es' : ''}
+                    {items.length} item{items.length !== 1 ? 's' : ''} added
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(false)}
-                aria-label="Close cart drawer"
-                className="w-9 h-9 rounded-full flex items-center justify-center text-[#EAE6DF]/60 hover:text-[#C5A880] hover:bg-[#C5A880]/10 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {items.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => clearCart()}
+                    className="flex items-center gap-1 text-[11px] text-[#EAE6DF]/50 hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-rose-500/10 transition-colors"
+                    title="Clear all cart items">
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Clear</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-label="Close cart drawer"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-[#EAE6DF]/60 hover:text-[#C5A880] hover:bg-[#C5A880]/10 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Cart Items List */}
             <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
               {items.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+                <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 space-y-3">
                   <div className="w-16 h-16 rounded-full bg-[#C5A880]/10 border border-[#C5A880]/20 flex items-center justify-center text-[#C5A880]/50 mb-2">
                     <ShoppingCart className="w-8 h-8" />
                   </div>
                   <h3 className="font-display text-lg font-bold text-[#EAE6DF]" style={{ fontFamily: 'Cinzel, serif' }}>
                     Your cart is empty
                   </h3>
-                  <p className="text-xs text-[#EAE6DF]/60 max-w-xs">
-                    Explore our curated tasting menu to add high-protein, calorie-conscious, and artisanal creations.
+                  <p className="text-xs text-[#EAE6DF]/60 max-w-xs leading-relaxed">
+                    Explore our curated tasting menu to select high-protein, calorie-conscious, and artisanal chef specialties.
                   </p>
                   <Link
                     href="/menu"
@@ -95,88 +115,94 @@ export default function CartDrawer() {
                   </Link>
                 </div>
               ) : (
-                items.map((item) => {
-                  const itemSubtotal = item.price * item.qty;
-                  const modifierBadge = item.protein >= 30 ? 'High Protein (30g+)' : item.calories < 300 ? 'Low Calorie (<300 cal)' : 'Chef Curated';
+                <>
+                  {items.map((item) => {
+                    const itemSubtotal = (Number(item.price) || 0) * (item.qty || 1);
+                    const tag = item.protein >= 30 ? 'High Protein' : item.category || 'Specialty';
 
-                  return (
-                    <motion.div
-                      key={item.id}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="glass-dark border border-[#C5A880]/15 rounded-2xl p-2.5 sm:p-3.5 flex gap-2.5 sm:gap-3 items-center"
-                    >
-                      {/* Thumbnail */}
-                      <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0 border border-[#C5A880]/20 bg-[#121212]">
-                        <Image
-                          src={item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                          sizes="64px"
-                        />
-                      </div>
-
-                      {/* Info & Modifiers */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-xs sm:text-sm text-[#EAE6DF] truncate">
-                          {item.name}
-                        </h4>
-                        <span className="inline-block text-[9px] text-[#C5A880] font-semibold bg-[#C5A880]/10 px-1.5 py-0.5 rounded-sm mt-0.5">
-                          {modifierBadge}
-                        </span>
-
-                        {/* Price breakdown formula */}
-                        <div className="text-[11px] text-[#EAE6DF]/70 mt-1">
-                          ₹{item.price} × {item.qty} ={' '}
-                          <span className="text-[#C5A880] font-bold">
-                            ₹{itemSubtotal.toFixed(2)}
-                          </span>
+                    return (
+                      <motion.div
+                        key={item.id}
+                        layout
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="glass-dark border border-[#C5A880]/15 rounded-2xl p-3 flex gap-3 items-center bg-[#141414]/90"
+                      >
+                        {/* Thumbnail */}
+                        <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border border-[#C5A880]/20 bg-[#121212]">
+                          <Image
+                            src={item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200'}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                            sizes="64px"
+                          />
                         </div>
-                      </div>
 
-                      {/* Quantity Controls & Remove */}
-                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.id)}
-                          aria-label={`Remove ${item.name} from cart`}
-                          className="text-[#EAE6DF]/40 hover:text-rose-400 p-1.5 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {/* Details */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-xs sm:text-sm text-[#EAE6DF] truncate">
+                            {item.name}
+                          </h4>
+                          <span className="inline-block text-[9px] text-[#C5A880] font-semibold bg-[#C5A880]/10 px-1.5 py-0.5 rounded mt-0.5">
+                            {tag}
+                          </span>
 
-                        <div className="inline-flex items-center bg-[#121212] border border-[#C5A880]/40 rounded-full p-0.5 shadow-sm min-h-[32px]">
+                          <div className="text-[11px] text-[#EAE6DF]/70 mt-1 flex items-center gap-2">
+                            <span>₹{Number(item.price).toFixed(2)} each</span>
+                            <span className="text-[#C5A880] font-bold">
+                              = ₹{itemSubtotal.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quantity Controls & Remove */}
+                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                           <button
                             type="button"
-                            onClick={() => updateQty(item.id, item.qty - 1)}
-                            aria-label={`Decrease ${item.name} quantity`}
-                            className="w-6 sm:w-7 h-6 sm:h-7 rounded-full flex items-center justify-center text-[#C5A880] hover:bg-[#C5A880] hover:text-[#0A0A0A] transition-colors active:scale-90"
+                            onClick={() => removeItem(item.id)}
+                            aria-label={`Remove ${item.name} from cart`}
+                            className="text-[#EAE6DF]/40 hover:text-rose-400 p-1 transition-colors"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                          <span className="w-5 text-center text-xs font-bold text-[#EAE6DF] select-none">
-                            {item.qty}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateQty(item.id, item.qty + 1)}
-                            aria-label={`Increase ${item.name} quantity`}
-                            className="w-6 sm:w-7 h-6 sm:h-7 rounded-full flex items-center justify-center text-[#C5A880] hover:bg-[#C5A880] hover:text-[#0A0A0A] transition-colors active:scale-90"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
+
+                          <div className="inline-flex items-center bg-[#121212] border border-[#C5A880]/40 rounded-full p-0.5 shadow-sm">
+                            <button
+                              type="button"
+                              onClick={() => updateQty(item.id, item.qty - 1)}
+                              aria-label={`Decrease ${item.name} quantity`}
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-[#C5A880] hover:bg-[#C5A880] hover:text-[#0A0A0A] transition-colors active:scale-90"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-5 text-center text-xs font-bold text-[#EAE6DF] select-none">
+                              {item.qty}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQty(item.id, item.qty + 1)}
+                              aria-label={`Increase ${item.name} quantity`}
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-[#C5A880] hover:bg-[#C5A880] hover:text-[#0A0A0A] transition-colors active:scale-90"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  );
-                })
+                      </motion.div>
+                    );
+                  })}
+
+                  {/* Recommendation: Complete Your Meal */}
+                  <div className="pt-2">
+                    <CompleteYourMeal compact />
+                  </div>
+                </>
               )}
             </div>
 
-            {/* Footer Summary & Checkout */}
+            {/* Footer Summary & Proceed to Order */}
             {items.length > 0 && (
               <div className="p-4 sm:p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-[#C5A880]/15 bg-[#121212]/95 space-y-3 flex-shrink-0">
                 <div className="space-y-1.5 text-xs text-[#EAE6DF]/70">
@@ -189,7 +215,7 @@ export default function CartDrawer() {
                     <span className="text-[#EAE6DF] font-medium">₹{tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-[#EAE6DF] pt-2 border-t border-[#C5A880]/15 text-sm sm:text-base">
-                    <span>Estimated Total</span>
+                    <span>Grand Total</span>
                     <span className="text-[#C5A880] font-display text-base sm:text-lg" style={{ fontFamily: 'Cinzel, serif' }}>
                       ₹{grandTotal.toFixed(2)}
                     </span>
@@ -209,7 +235,7 @@ export default function CartDrawer() {
                     onClick={() => setDrawerOpen(false)}
                     className="py-3 px-2 min-h-[44px] rounded-xl bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] text-xs font-bold uppercase tracking-wider text-center shadow-warm hover:brightness-110 flex items-center justify-center gap-1.5 transition-all"
                   >
-                    Checkout <ArrowRight className="w-3.5 h-3.5" />
+                    Proceed to Order <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </div>

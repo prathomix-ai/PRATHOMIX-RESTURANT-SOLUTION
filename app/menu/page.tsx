@@ -6,6 +6,7 @@ import DishCard from '@/components/DishCard';
 import { motion } from 'framer-motion';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import type { Dish } from '@/lib/supabase';
+import { useCartStore } from '@/lib/store';
 
 const ChatInterface = nextDynamic(() => import('@/components/ChatInterface'), {
   ssr: false,
@@ -18,18 +19,27 @@ const normalize = (value: string) => value.trim().toLowerCase();
 
 import { useSearchParams } from 'next/navigation';
 
+// Client-side in-memory cache to prevent refetch waterfalls
+let cachedMenuDishes: Dish[] | null = null;
+let lastMenuFetchTime = 0;
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
 function MenuContent() {
   const searchParams = useSearchParams();
   const tableParam = searchParams.get('table');
 
   const qrTokenParam = searchParams.get('token');
 
-  const [dishes,   setDishes]   = useState<Dish[]>([]);
+  const [dishes,   setDishes]   = useState<Dish[]>(() => cachedMenuDishes || []);
   const [category, setCategory] = useState('All');
   const [search,   setSearch]   = useState('');
-  const [loading,  setLoading]  = useState(true);
+  const [loading,  setLoading]  = useState(() => !cachedMenuDishes || cachedMenuDishes.length === 0);
   const [error,    setError]    = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search);
+
+  const cartTotal = useCartStore((s) => s.total());
+  const cartCount = useCartStore((s) => s.count());
+  const toggleDrawer = useCartStore((s) => s.toggleDrawer);
 
   useEffect(() => {
     if (tableParam) {
@@ -80,39 +90,42 @@ function MenuContent() {
     },
   };
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadDishes() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const res = await fetch('/api/dishes', { cache: 'no-store' });
-        const payload = await res.json();
-
-        if (!res.ok) {
-          throw new Error(payload?.error || 'Failed to fetch dishes');
-        }
-
-        const dishList: Dish[] = Array.isArray(payload) ? payload : [];
-
-        if (!mounted) return;
-        setDishes(dishList);
-      } catch (err: unknown) {
-        if (!mounted) return;
-        setDishes([]);
-        setError(err instanceof Error ? err.message : 'Unable to load menu');
-      } finally {
-        if (mounted) setLoading(false);
-      }
+  const loadDishes = async (force = false) => {
+    const isFresh = cachedMenuDishes && cachedMenuDishes.length > 0 && Date.now() - lastMenuFetchTime < CACHE_TTL_MS;
+    if (isFresh && !force) {
+      setDishes(cachedMenuDishes);
+      setLoading(false);
+      return;
     }
 
-    loadDishes();
+    if (!cachedMenuDishes || cachedMenuDishes.length === 0) {
+      setLoading(true);
+    }
+    setError(null);
 
-    return () => {
-      mounted = false;
-    };
+    try {
+      const res = await fetch('/api/dishes');
+      const payload = await res.json();
+
+      if (!res.ok) {
+        throw new Error(payload?.error || 'Failed to fetch dishes');
+      }
+
+      const dishList: Dish[] = Array.isArray(payload) ? payload : [];
+      cachedMenuDishes = dishList;
+      lastMenuFetchTime = Date.now();
+      setDishes(dishList);
+    } catch (err: unknown) {
+      if (!cachedMenuDishes || cachedMenuDishes.length === 0) {
+        setError(err instanceof Error ? err.message : 'Unable to load menu');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDishes();
   }, []);
 
   const filtered = useMemo(() => {
@@ -212,13 +225,37 @@ function MenuContent() {
         {/* Fluid Responsive Grid — 1 col on small phones, 2 on phablets/tablets, 3-5 on desktop */}
         {loading ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,250px),1fr))] sm:grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3.5 sm:gap-5 lg:gap-6 paint-boost">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-64 glass-dark rounded-2xl animate-pulse border border-[#C5A880]/15" />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="glass-dark rounded-2xl sm:rounded-3xl overflow-hidden border border-[#C5A880]/15 p-3 flex flex-col justify-between h-[360px] animate-pulse">
+                <div>
+                  <div className="w-full h-44 rounded-xl bg-gradient-to-br from-[#1c1c1c] via-[#242424] to-[#171717] mb-3 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+                  </div>
+                  <div className="h-3 w-20 rounded bg-[#C5A880]/20 mb-2" />
+                  <div className="h-4 w-3/4 rounded bg-white/10 mb-2" />
+                  <div className="h-3 w-full rounded bg-white/5 mb-1" />
+                  <div className="h-3 w-4/5 rounded bg-white/5" />
+                </div>
+                <div className="pt-3 border-t border-[#C5A880]/10 flex items-center justify-between mt-auto">
+                  <div className="h-5 w-16 rounded bg-[#C5A880]/20" />
+                  <div className="h-8 w-20 rounded-full bg-[#C5A880]/25" />
+                </div>
+              </div>
             ))}
           </div>
         ) : error ? (
-          <div className="text-center py-20 text-[#C5A880]">
-            Could not load dishes: {error}
+          <div className="text-center py-20 px-4">
+            <div className="glass-dark max-w-md mx-auto p-8 rounded-3xl border border-[#C5A880]/20">
+              <p className="text-sm text-rose-400 mb-4 font-semibold">Unable to load menu: {error}</p>
+              <button
+                type="button"
+                onClick={() => loadDishes(true)}
+                className="inline-flex items-center gap-2 bg-[#C5A880] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl shadow-warm hover:brightness-110 transition-all">
+                Retry Loading
+              </button>
+            </div>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-[#EAE6DF]/50">
@@ -239,6 +276,27 @@ function MenuContent() {
           </motion.div>
         )}
       </main>
+
+      {/* Mobile Sticky Cart Action Bar */}
+      {cartCount > 0 && (
+        <div className="md:hidden fixed bottom-4 inset-x-3 z-40">
+          <button
+            type="button"
+            onClick={() => toggleDrawer()}
+            className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-sm tracking-wider uppercase shadow-2xl flex items-center justify-between active:scale-[0.98] transition-transform">
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-[#0A0A0A] text-[#C5A880] text-xs font-black flex items-center justify-center">
+                {cartCount}
+              </span>
+              <span>View Cart</span>
+            </div>
+            <span className="font-display font-black text-base" style={{ fontFamily: 'Cinzel, serif' }}>
+              ₹{cartTotal.toFixed(2)}
+            </span>
+          </button>
+        </div>
+      )}
+
       <ChatInterface />
     </>
   );

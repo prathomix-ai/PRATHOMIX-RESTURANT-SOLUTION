@@ -47,10 +47,10 @@ export async function GET(req: Request) {
 
     await ensureRestaurantDishesSeeded();
 
-    // Select explicit fields to reduce payload by 40%
+    // Select explicit fields to reduce payload and avoid schema mismatches
     let query = supabase
       .from(RESTAURANT_TABLES.dishes)
-      .select('id, name, description, price, category, image_url, available, calories, protein, carbs, fat, is_featured, prep_time_minutes, spice_level, veg_type, modifiers, created_at')
+      .select('id, name, description, price, category, image_url, available, calories, protein, is_featured, prep_time_minutes, spice_level, veg_type, modifiers, created_at')
       .order('created_at', { ascending: false });
 
     // Multi-tenant restaurant scoping
@@ -68,7 +68,29 @@ export async function GET(req: Request) {
 
     query = query.range(offset, offset + limit - 1);
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+
+    // Resilient fallback if custom columns do not exist in database schema
+    if (error && (error.message?.includes('column') || error.code === '42703')) {
+      let fallbackQuery = supabase
+        .from(RESTAURANT_TABLES.dishes)
+        .select('id, name, description, price, category, image_url, available, calories, protein, created_at')
+        .order('created_at', { ascending: false });
+
+      if (category && category.toLowerCase() !== 'all') {
+        fallbackQuery = fallbackQuery.ilike('category', `%${category}%`);
+      }
+
+      if (search && search.trim()) {
+        fallbackQuery = fallbackQuery.or(`name.ilike.%${search.trim()}%,description.ilike.%${search.trim()}%`);
+      }
+
+      fallbackQuery = fallbackQuery.range(offset, offset + limit - 1);
+      const fallbackResult = await fallbackQuery;
+
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       console.warn('[Dishes API] Query fallback triggered:', error.message);

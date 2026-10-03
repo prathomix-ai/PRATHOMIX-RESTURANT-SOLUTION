@@ -14,8 +14,10 @@ import {
   Calendar,
   BarChart2,
   ChevronDown,
+  Lightbulb,
 } from 'lucide-react';
 import type { Order, Dish, InventoryItem } from '@/lib/supabase';
+import { generateOwnerInsights } from '@/lib/recommendations';
 
 interface Props {
   orders: Order[];
@@ -99,6 +101,10 @@ export default function AdminOverview({ orders, dishes, inventory, bookingsCount
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
   }, [filteredOrders]);
+
+  const ownerInsights = useMemo(() => {
+    return generateOwnerInsights(filteredOrders, dishes);
+  }, [filteredOrders, dishes]);
 
   return (
     <div className="space-y-6">
@@ -184,6 +190,47 @@ export default function AdminOverview({ orders, dishes, inventory, bookingsCount
         </div>
       </div>
 
+      {/* Owner Smart Insights (Requirement 7 & 8) */}
+      <div className="glass-dark border border-[#C5A880]/25 rounded-3xl p-6 shadow-xl space-y-4 bg-[#141414]/90">
+        <div className="flex items-center justify-between">
+          <h3
+            className="font-display font-bold text-base text-[#EAE6DF] flex items-center gap-2"
+            style={{ fontFamily: 'Cinzel, serif' }}>
+            <Lightbulb className="w-4 h-4 text-[#C5A880]" /> Owner Recommendations &amp; Pairing Insights
+          </h3>
+          <span className="text-[10px] uppercase font-bold text-[#C5A880] tracking-wider bg-[#C5A880]/10 px-2.5 py-0.5 rounded-full border border-[#C5A880]/20">
+            Data-Driven
+          </span>
+        </div>
+
+        {!ownerInsights.hasEnoughData ? (
+          <div className="p-5 rounded-2xl bg-[#101010] border border-white/5 text-center text-xs text-[#EAE6DF]/50">
+            <p className="font-medium text-[#EAE6DF]/70 mb-1">Not enough data yet</p>
+            <p className="text-[11px] text-[#EAE6DF]/40">
+              {ownerInsights.message || 'Insights will appear automatically once guests place multi-item orders.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {ownerInsights.insights.map((insight) => (
+              <div
+                key={insight.id}
+                className="p-4 rounded-2xl bg-[#121212] border border-[#C5A880]/15 space-y-1.5 hover:border-[#C5A880]/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#C5A880]">{insight.title}</span>
+                  {insight.metric && (
+                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      {insight.metric}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#EAE6DF]/70 leading-relaxed">{insight.description}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Sales by Channel & Top Dishes */}
       <div className="grid lg:grid-cols-12 gap-6">
         {/* Channel Breakdown */}
@@ -247,7 +294,7 @@ export default function AdminOverview({ orders, dishes, inventory, bookingsCount
           </div>
         </div>
 
-        {/* Top Selling Dishes / Insights */}
+        {/* Top Selling Dishes */}
         <div data-tour="owner-ai-insights" className="lg:col-span-6 glass-dark border border-[#C5A880]/20 rounded-3xl p-6 shadow-xl space-y-4">
           <h3
             className="font-display font-bold text-base text-[#EAE6DF] flex items-center gap-2"

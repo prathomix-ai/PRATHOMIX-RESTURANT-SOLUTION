@@ -32,8 +32,10 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import SplitBill from '@/components/SplitBill';
+import CompleteYourMeal from '@/components/CompleteYourMeal';
 import { useCartStore } from '@/lib/store';
 import { getClientSession } from '@/lib/auth';
+import { addLocalOrder } from '@/lib/localOrders';
 
 type OrderType = 'dine_in' | 'takeaway' | 'delivery';
 type PaymentMethod = 'cash' | 'upi' | 'card';
@@ -257,6 +259,24 @@ function CartContent() {
         }),
       }).catch(() => null);
 
+      // Persist canonical order locally so it's never lost across navigation or refresh
+      if (data && data.id) {
+        addLocalOrder({
+          id: data.id,
+          table_number: data.table_number || (orderType === 'dine_in' ? Number(tableNumber) : null),
+          dish_ids: items.map((i) => i.id),
+          dish_names: items.map((i) => `${i.qty}x ${i.name}`),
+          total_amount: grandTotal,
+          split_count: 1,
+          status: data.status || 'placed',
+          created_at: data.created_at || new Date().toISOString(),
+        });
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('prathomix_last_order_id', data.id);
+          sessionStorage.setItem('prathomix_last_order_id', data.id);
+        }
+      }
+
       setConfirmedOrder(data);
       setLiveVerificationStatus(data.verification_status || 'CONFIRMED');
       clearCart();
@@ -333,14 +353,19 @@ function CartContent() {
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link
-                  href="/menu"
-                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-warm hover:brightness-110 transition-all">
-                  Continue Ordering <ArrowRight className="w-4 h-4" />
+                  href={`/order?id=${confirmedOrder.id}`}
+                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-5 py-3.5 rounded-xl shadow-warm hover:brightness-110 transition-all">
+                  Track Order Live <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
                   href={billUrl}
-                  className="inline-flex items-center justify-center gap-2 bg-[#121212] border border-[#C5A880]/30 hover:border-[#C5A880] text-[#C5A880] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl transition-all">
+                  className="inline-flex items-center justify-center gap-2 bg-[#121212] border border-[#C5A880]/30 hover:border-[#C5A880] text-[#C5A880] font-bold text-xs uppercase tracking-wider px-5 py-3.5 rounded-xl transition-all">
                   <Receipt className="w-4 h-4" /> View Running Bill
+                </Link>
+                <Link
+                  href="/menu"
+                  className="inline-flex items-center justify-center gap-2 bg-white/5 border border-white/10 hover:border-white/20 text-[#EAE6DF] text-xs font-semibold uppercase tracking-wider px-4 py-3.5 rounded-xl transition-all">
+                  Order More
                 </Link>
               </div>
             </motion.div>
@@ -429,11 +454,23 @@ function CartContent() {
               </div>
             </div>
 
-            <Link
-              href="/menu"
-              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-warm hover:brightness-110 transition-all">
-              Browse More <ArrowRight className="w-4 h-4" />
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href={`/order?id=${confirmedOrder.id}`}
+                className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#C5A880] to-[#8C7355] text-[#0A0A0A] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-warm hover:brightness-110 transition-all">
+                Track Order Live <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href={`/bill?order_id=${confirmedOrder.id}`}
+                className="inline-flex items-center justify-center gap-2 bg-[#121212] border border-[#C5A880]/30 hover:border-[#C5A880] text-[#C5A880] font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl transition-all">
+                <Receipt className="w-4 h-4" /> View Bill
+              </Link>
+              <Link
+                href="/menu"
+                className="inline-flex items-center justify-center gap-2 bg-white/5 border border-white/10 hover:border-white/20 text-[#EAE6DF] text-xs font-semibold uppercase tracking-wider px-4 py-3.5 rounded-xl transition-all">
+                Browse Menu
+              </Link>
+            </div>
           </motion.div>
         </main>
       </>
@@ -611,6 +648,11 @@ function CartContent() {
                   placeholder="e.g. Less spicy, dressing on the side, allergic to peanuts..."
                   className="w-full bg-[#121212] border border-[#C5A880]/20 focus:border-[#C5A880] rounded-xl px-4 py-2.5 text-xs text-[#EAE6DF] placeholder-[#EAE6DF]/30 outline-none"
                 />
+              </div>
+
+              {/* Complete Your Meal Recommendations */}
+              <div className="glass-dark rounded-2xl border border-[#C5A880]/15 p-4">
+                <CompleteYourMeal />
               </div>
             </div>
 
